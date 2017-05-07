@@ -21,7 +21,6 @@ AddCruiseBehavior <- function(df = df,
   return(df)
 }
 
-
 #' Adds flight behavior
 #'
 #' Finds location data that meet given threshold parameters for flights, which
