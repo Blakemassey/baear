@@ -1,2 +1,2 @@
-# ibmr
-Individual-based modeling (IBM) framework for R
+# baear
+Bald Eagle telemetry data manipulation, analysis, and plotting
