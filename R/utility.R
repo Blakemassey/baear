@@ -145,7 +145,7 @@ ReplaceFilesText <- function(files,
 #' @param dpi Integer, dpi to use for raster graphics. Default is 300.
 #' @param bg String, background color. Default is "white"
 #'
-#' @return Saves a jpeg file of the last displayed plot
+#' @return Saves a png file of the last displayed plot
 #' @export
 #'
 #' @details Default output format is set for PowerPoint presentations
@@ -158,7 +158,7 @@ SaveGGPlot <- function (filename,
                         dpi=300,
                         bg = "white"){
   if(is.null(path)) path <- getwd()
-  if (file_ext(filename) == "") filename <- paste0(filename,".png")
+  if (tools::file_ext(filename) == "") filename <- paste0(filename,".png")
   ggplot2::ggsave(filename = filename, path = path, width=width, height=height,
     units=units, dpi=dpi, bg = bg)
 }
@@ -191,19 +191,19 @@ SavePlot <- function (filename,
                       units = "in",
                       dpi = 300){
   if (is.null(path)) path <- getwd()
-  if (file_ext(filename) == "") filename <- paste0(filename,".png")
+  if (tools::file_ext(filename) == "") filename <- paste0(filename,".png")
   filepath <- file.path(path, filename)
-  if (file_ext(filename) == "png") {
+  if (tools::file_ext(filename) == "png") {
     dev.copy(png, filename=filepath, width=width, height=height, units=units,
       pointsize=12, bg="white", res=dpi)
     dev.off()
   }
-  if (file_ext(filename) == "jpeg" || file_ext(filename) == "jpg") {
+  if (tools::file_ext(filename) == "jpeg" || tools::file_ext(filename) =="jpg"){
     dev.copy(jpeg, filename=filepath, width=width, height=height, res=dpi,
       units=units, quality=100)
     dev.off()
   }
-  if (file_ext(filename) == "pdf") {
+  if (tools::file_ext(filename) == "pdf") {
     dev.copy2pdf(file=filepath, width=width, height=height, paper="special")
   }
 }

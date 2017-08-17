@@ -24,7 +24,7 @@ explicitly specified (in, cm, or mm). Default is "in".}
 \item{bg}{String, background color. Default is "white"}
 }
 \value{
-Saves a jpeg file of the last displayed plot
+Saves a png file of the last displayed plot
 }
 \description{
 A wrapper function for ggsave()

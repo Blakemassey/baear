@@ -97,6 +97,7 @@ AddFlightData <- function(df,
 #' @export
 #'
 #' @details Creates folders for every year in output directory
+
 AddHomeConEdgeDistanceBAEA <- function(baea,
                                        nest_set,
                                        base,
@@ -420,67 +421,7 @@ AddNestConDist<- function(df,
   return(output)
 }
 
-#' Adds nest-related columns to dataframe
-#'
-#' Adds nest locations, angle, and distance to each record, based on "date" and
-#'   "id"
-#'
-#' @usage AddNestData(df, nests_study, nests_use)
-#'
-#' @param df dataframe of BAEA location data
-#' @param nests_study .csv file of study nests. Default is:
-#'   "C:/Work/R/Data/BAEA/Nests/Nests_Study.csv"
-#' @param nests_use .csv file of study nests corresponding use dates. Default
-#'   is: "C:/Work/R/Data/BAEA/Nests/Nests_Study_Use_Dates.csv"
-#'
-#' @return dataframe
-#'
-#' @importFrom magrittr "%>%"
-#' @export
-#'
-AddNestData <- function(df = df,
-                        nests_study = file.path("C:/Work/R/Data/BAEA/Nests",
-                                        "Nests_Study.csv"),
-                        nests_use = file.path("C:/Work/R/Data/BAEA/Nests",
-                                      "Nests_Study_Use_Dates.csv")) {
-  df <- df
-  nests <- read.csv(nests_use, header=TRUE, stringsAsFactors=FALSE,
-      row.names=NULL) %>%
-    dplyr::left_join(.,  read.csv(nests_study, header=TRUE,
-      stringsAsFactors=FALSE, row.names=NULL), by=c("name", "nest_site",
-      "nest_area")) %>%
-    dplyr::mutate(
-      use_start_date = as.Date(as.character(use_start_date), "%Y%m%d"),
-      use_end_date = as.Date(as.character(use_end_date), "%Y%m%d"),
-      clutch_initiation = as.Date(as.character(clutch_initiation), "%Y%m%d"),
-      breeding_end_date = as.Date(as.character(breeding_end_date), "%Y%m%d"),
-      nest_long_utm = long_utm,
-      nest_lat_utm = lat_utm) %>%
-    dplyr::select(eagle_id, nest_site, nest_area, use_start_date, use_end_date,
-      nest_long_utm, nest_lat_utm)
-  nests_blank <- nests[0,]
-  nests_blank[1:nrow(df),] <- NA
-  df <- cbind(df, nests_blank)
-    df_10000 <- df[10000,]
-  for (i in 1:nrow(nests)) {
-    nest <- nests[i,]
-    if (is.na(nest$use_end_date)) {
-      use_end_date <- Sys.Date() + 1
-    } else {
-      use_end_date <- nest$use_end_date
-    }
-    sv <- df$id == nest$eagle_id & df$date >= nest$use_start_date &
-      df$date <= use_end_date
-    df[sv, (ncol(df)-length(nest)+1):ncol(df)] <- nest[1,]
-  }
-  df <- df %>% dplyr::select(-eagle_id)
-  df$nest_angle <- CalculateAngleToPoint(df$long_utm, df$lat_utm,
-    df$nest_long_utm, df$nest_lat_utm)
-  df <- df %>%
-    dplyr::mutate(nest_dist = round(sqrt(((long_utm - nest_long_utm)^2) +
-      ((lat_utm - nest_lat_utm)^2))))
-  return(df)
-}
+
 
 #' Add perch behavior
 #'
@@ -539,7 +480,7 @@ AddRoostBehavior <- function(df = baea,
   df$two_hr_before_sunset <- df$hr_after_sunset - hours(2)
   df$sunrise_window_loc <- df$datetime <= df$two_hr_after_sunrise
   df$sunset_window_loc <- df$datetime >= df$two_hr_before_sunset
-  sumstats <- ddply(df, .(id, date), summarize,
+  sumstats <- plyr::ddply(df, .(id, date), summarize,
     date = as.Date(unique(date)), total_loc = length(deploy_seq),
     am_loc = sum(sunrise_window_loc, na.rm=TRUE),
     pm_loc = sum(sunset_window_loc, na.rm=TRUE))
@@ -579,14 +520,14 @@ AddRoostBehavior <- function(df = baea,
   roost_departure_filtered <- join (df, first_roost_confirmed,
     type = "inner")  # to "confirm" departure based on overnight distance
   threshold_dist <- function(x, threshold=at_roost_distance_threshold) {
-    x>threshold
+    x > threshold
   }
   # This function sets the distance a location can still be considered at roost
   # based on its distance to the last and first locations
-  depart <- ddply(roost_departure_filtered, .(date, id), function(x)
+  depart <- plyr::ddply(roost_departure_filtered, .(date, id), function(x)
     x[(Position(threshold_dist, x$dist_first, right = FALSE, nomatch = NULL)
        - 1), c("id","date", "datetime")])
-  arrive <- ddply(roost_arrival_filtered, .(date, id), function(x)
+  arrive <- plyr::ddply(roost_arrival_filtered, .(date, id), function(x)
     x[(Position(threshold_dist, x$dist_last, right = TRUE, nomatch = NULL) + 1),
       c("id", "date", "datetime")])
   arrive$arr_dist_threshold_datetime <- arrive$datetime
@@ -599,21 +540,21 @@ AddRoostBehavior <- function(df = baea,
   threshold_time_arrive <- function(x, threshold=arrive_timediff_max) {
     x>threshold
   }
-  depart_max <- ddply(roost_departure_filtered, .(date, id),
+  depart_max <- plyr::ddply(roost_departure_filtered, .(date, id),
     function(x) x[nrow(x), c("id","date", "datetime")])
-  arrive_max <- ddply(roost_arrival_filtered, .(date, id),
+  arrive_max <- plyr::ddply(roost_arrival_filtered, .(date, id),
     function(x) x[1, c("id","date", "datetime")])
   depart_max$max_datetime <- depart_max$datetime
   arrive_max$max_datetime <- arrive_max$datetime
   depart_max$datetime <- NULL
   arrive_max$datetime <- NULL
   # max_datetime is the first/last record in the day
-  depart_threshold <- ddply(roost_departure_filtered, .(date, id), function(x)
-    x[(Position(threshold_time_depart, x$time_after_start, right = FALSE,
-    nomatch = NULL) - 1), c("id","date", "datetime")])
-  arrive_threshold <- ddply(roost_arrival_filtered, .(date, id), function(x)
-    x[(Position(threshold_time_arrive, x$time_before_end, right = TRUE,
-    nomatch = NULL) + 1), c("id","date", "datetime")])
+  depart_threshold <- plyr::ddply(roost_departure_filtered, .(date, id),
+    function(x) x[(Position(threshold_time_depart, x$time_after_start,
+    right = FALSE, nomatch = NULL) - 1), c("id","date", "datetime")])
+  arrive_threshold <- plyr::ddply(roost_arrival_filtered, .(date, id),
+    function(x) x[(Position(threshold_time_arrive, x$time_before_end,
+    right = TRUE, nomatch = NULL) + 1), c("id","date", "datetime")])
   depart_threshold$threshold_datetime <- depart_threshold$datetime
   arrive_threshold$threshold_datetime <- arrive_threshold$datetime
   depart_threshold$datetime <- NULL
@@ -663,10 +604,39 @@ AddRoostBehavior <- function(df = baea,
     "arr_datetime", "sunset_window_loc", "am_loc", "pm_loc", "next_am_loc",
     "roost", "loaf", "roost_loaf" ,"dep_dist_threshold_datetime",
     "arr_dist_threshold_datetime")
-  df<-df[ ,!(names(df) %in% drops)]
+  df <- df[ ,!(names(df) %in% drops)]
   row.names(df) <- NULL
   return(df)
 }
+
+
+#' Adds 'season' to dataframe
+#'
+#' Adds 'season' column to original dataframe. Seasons start at 3-19, 6-20,
+#'   9-21, and 12-20 for "Spring", "Summer", "Fall", and "Winter", respectively.
+#'
+#' @usage AddSeason(df, date_col)
+#'
+#' @param df dataframe
+#' @param by date column. Default is "date".
+#'
+#' @return dataframe with 'season' column
+#' @export
+#'
+#'
+
+AddSeason <- function(df,
+                      date_col = "date"){
+  df <- df
+  df$date <- df[,date_col]
+  numeric_date <- 100*month(df$date) + day(df$date)
+  cuts <- base::cut(numeric_date, breaks = c(0, 0319, 0620, 0921, 1220, 1231))
+  levels(cuts) <- c("winter", "spring", "summer", "fall", "winter")
+  cuts <- as.character(cuts)
+  df$season <- cuts
+  return(df)
+}
+
 
 #' Adds time step proportions
 #'
@@ -1057,11 +1027,11 @@ CreateColorsByAny <- function (by,
   if (!is.null(by)){
   if (by == "behavior" || by == "id" || by == "sex") {
     if (by == "behavior") by_colors <- CreateColorsByMetadata(file=
-      "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
     if (by == "id") by_colors <- CreateColorsByMetadata(file=
-      "C:/Work/R/Data/BAEA/GPS_Deployments.csv", metadata_id="deploy_location")
+      "Data/GPS/GPS_Deployments.csv", metadata_id="deploy_location")
     if (by == "sex") by_colors <- CreateColorsByMetadata(file=
-      "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv", metadata_id="sex")
+      "Data/Models/Behavior_Colors.csv", metadata_id="sex")
   } else {
     by_colors <- CreateColorsByVar(df=df, by=by, pal=pal, r_pal = r_pal, b_pal =
       b_pal)
@@ -1480,127 +1450,6 @@ CreateHomeRangeKernelsParetoGamma <- function(df_all,
   return(homerange_kernels)
 }
 
-
-
-#' Exports telemetry data into 'Individuals' folders
-#'
-#' Splits data by ID and exports .csv files to the Individuals folders
-#'
-#' @param data Dataframe of location data
-#' @param output_dir String, folder for 'individual' files. Default is:
-#'   "C:/Work/R/Data/BAEA/Telemetry/Individuals/CSVs"
-#' @param output_dir_all String, folder for 'all' files. Default is:
-#'   "C:/Work/R/Data/BAEA/Telemetry/Individuals/CSVs"
-#' @param tz String, time zone. Default is "Etc/GMT+5"
-#'
-#' @return Exports .csv files.
-#' @importFrom magrittr "%>%"
-#' @export
-#'
-ExportTelemetryDataById <- function(data,
-                                    output_dir = file.path("C:/Work/R/Data",
-                                      "BAEA/Telemetry/Individuals/CSVs"),
-                                    output_dir_all = file.path("C:/Work/R/Data",
-                                      "BAEA/Telemetry/All/CSVs"),
-                                    tz = "Etc/GMT+5"){
-  data <- data
-  # All data
-  filenames <- list.files(output_dir_all, full.names=TRUE)
-  csv_file <- filenames[grep("All", filenames)]
-  file.remove(csv_file)
-  first_date <- format(min(data$datetime), "%Y-%m-%d")
-  last_date <- format(max(data$datetime), "%Y-%m-%d")
-  new_csv_file <- paste0(output_dir_all, "/All","_", first_date, "_", last_date,
-    ".csv")
-  writing <- paste( "Writing:", new_csv_file)
-  writeLines(noquote(writing))
-  write.csv(data, new_csv_file, row.names=FALSE)
-  # By individual
-  filenames <- list.files(output_dir, full.names=TRUE)
-  ids <- unique(data$id)
-  for (i in  1:length(ids)){
-    id <- ids[i]
-    df <- data[data$id == id,]
-    classes <- unlist(sapply(data, class))
-    drops <- c("datetime2")
-    classes <- classes[!names(classes) %in% drops]
-    names(classes)[which(names(classes) == "datetime1")] <- "datetime"
-    files <- filenames[grep(paste0(id, "\\_"), filenames, perl=TRUE)]
-    csv_file <- files[file_ext(files) == "csv"]
-    classes["alt"] <- "numeric"
-    if (length(csv_file) > 0){
-      df2 <- read.csv(csv_file, header=TRUE, stringsAsFactors=FALSE,
-        colClasses=classes)
-      file.remove(csv_file)
-      tz(df2$datetime) <- tz
-      df <- df %>%
-        rbind(df2, df) %>%
-        dplyr::distinct() %>%
-        dplyr::arrange(id, datetime)
-      first_date <- format(min(df$datetime), "%Y-%m-%d")
-      last_date <- format(max(df$datetime), "%Y-%m-%d")
-      new_csv_file <- paste0(output_dir, "/", id, "_", first_date, "_",
-        last_date, ".csv")
-      writing <- paste( "Writing:", new_csv_file)
-      writeLines(noquote(writing))
-      write.csv(df, new_csv_file, row.names=FALSE)
-    } else {
-      first_date <- format(min(df$datetime), "%Y-%m-%d")
-      last_date <- format(max(df$datetime), "%Y-%m-%d")
-      new_csv_file <- paste0(output_dir, "/", id, "_", first_date, "_",
-        last_date, ".csv")
-      write.csv(df, new_csv_file, row.names=FALSE)
-      writing <- paste( "Writing:", new_csv_file)
-      writeLines(noquote(writing))
-    }
-  }
-}
-
-#' Exports kml files for each year
-#'
-#' Splits data by ID and exports .kmls to the Individuals folders
-#'
-#' @usage ExportTelemetryKMLByYear(data, output_dir, update, tz)
-#'
-#' @param data Dataframe of location data.
-#' @param output_dir Output directory, default is:
-#'   "C:/Work/R/Data/BAEA/Telemetry/Individuals/CSVs"
-#' @param update Logical, whether or not to update only the current year's
-#'   files. Default is TRUE.
-#' @param tz String, timezone of data. Default is "Etc/GMT+5".
-#'
-#' @return Exports .kml files
-#' @export
-#'
-ExportTelemetryKMLByYear <- function(data,
-                                     output_dir = file.path("C:/Work/R/Data",
-                                       "BAEA/Telemetry/Individuals/KMLs"),
-                                     update = TRUE,
-                                     tz = "Etc/GMT+5"){
-  data <- data
-  ids <- unique(data$id)
-  for (i in  1:length(ids)){
-    id <- ids[i]
-    df <- data[data$id == id,]
-    if(update == TRUE){
-      current_year <- year(now())
-      df_year <- df[df$year == current_year,]
-      if (nrow(df_year) > 1){
-        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", current_year,
-          ".kml"), output_dir = output_dir)
-      }
-    } else {
-      years <- year(first(df$datetime)):year(last(df$datetime))
-      for (j in 1:length(years)){
-        year <- years[j]
-        df_year <- df[df$year == year,]
-        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", year, ".kml"),
-          output_dir = output_dir)
-      }
-    }
-  }
-}
-
 #' Extracts flight data
 #'
 #' Extracts the data associated with 'flight' for each bird, based on speed
@@ -1685,6 +1534,60 @@ ExtractRoostData <- function(df = df){
     output$dep_diff_min)
   return(output)
 }
+
+#' Filter Locations by Nest Behavior Criteria
+#'
+#' @usage FilterByNestCriteria(df, min_daily_nest_dist, roll_days,
+#'   min_roll_days_nest_dist, seasons)
+#'
+#' @param df dataframe of locations
+#' @param min_daily_nest_dist numeric, bird's daily minimum distance from nest
+#'   to meet the criteria
+#' @param roll_days numberic, number of days for rolling mean calculation of
+#'   nest distance
+#' @param min_roll_days_nest_dist numeric, bird's daily minimum distance from
+#'   nest to meet the criteria
+#' @param seasons seasons to keep (e.g., c("spring","summer")).
+#'
+#' @return dataframe
+#' @export
+#'
+#' @import dplyr
+#'
+FilterByNestCriteria <- function(df,
+                                 min_daily_nest_dist = 100,
+                                 roll_days = NA,
+                                 min_roll_days_nest_dist = NA,
+                                 seasons = c("spring", "summer")){
+  df <- df
+  df <- df %>% filter(season %in% seasons)
+  df_sum <- df %>%
+    group_by(id, date) %>%
+    summarize(nest_dist_dymean = mean(nest_dist),
+      nest_dist_min = min(nest_dist)) %>%
+    mutate(nest_dist_met = if_else(nest_dist_min <  min_daily_nest_dist, TRUE,
+      FALSE)) %>%
+    ungroup()
+  if(!is.na(roll_days) && !is.na(min_roll_days_nest_dist)) {
+    df_sum <- df %>%
+      group_by(id, date) %>%
+      mutate(
+        nest_dist_run_3dy = zoo::rollmean(nest_dist_dymean, roll_days, fill=NA,
+          na.pad=TRUE, align="left"),
+        roll_dist_met = if_else(nest_dist_run_3dy <  min_roll_days_nest_dist,
+          TRUE, FALSE)) %>%
+      ungroup()
+  }  else {
+    df_sum <- df_sum %>% mutate(roll_dist_met = TRUE)
+  }
+  df_final <- left_join(df, df_sum, by = c("id", "date")) %>%
+      filter(!is.na(nest_dist_met) && !is.na(roll_dist_met)) %>%
+      filter(nest_dist_met == TRUE, roll_dist_met == TRUE)
+  return(df_final)
+
+}
+
+
 
 #' Filter location by individual and dates
 #'
@@ -1833,90 +1736,6 @@ IfElseTimedateNA <- function(df = df,
   df_length <- length(df)
   colnames(df)[df_length] <- result
   return(df)
-}
-
-#' Imports 'baea' data
-#'
-#' Imports baea.csv and merges with existing data
-#'
-#' @usage ImportBAEA(existing, import, tz)
-#'
-#' @param existing Dataframe, exisiting file to merge with baea. Can be NULL.
-#'   Default is "deployed".
-#' @param import Logical, whether or not to import baea.csv file. Default is
-#'   TRUE.
-#' @param tz String, timezone. Default is "Etc/GMT+5".
-#'
-#' @return Merged baea dataframe is returned. Also, writes new "baea.csv" file.
-#' @export
-#'
-#' @details Directory defaults are specific to my computer
-#'
-ImportBAEA <- function(existing = deployed,
-                       import = TRUE,
-                       tz = "Etc/GMT+5") {
-  if (import == TRUE) {
-    baea <- read.csv(file="C:/Work/R/Data/BAEA/BAEA.csv", header = TRUE,
-      stringsAsFactors=FALSE)
-    date_cols <- c("date","on_hand","deployed", "end_data",  "failed",
-      "removed", "recovered")
-    for (i in date_cols) {
-      baea[,i] <- as.Date(baea[,i], "%Y-%m-%d", tz=tz)  # they are chars
-    }
-    datetime_cols <- c("datetime","sunset", "sunrise",  "solarnoon",
-      "hr_before_sunrise", "hr_after_sunset")
-    for (i in datetime_cols) {
-      baea[,i] <- as.POSIXct(baea[,i], tz=tz, usetz=FALSE)
-    }
-    if (!is.null(existing)) {
-      existing <- subset(existing, date > (as.Date(max(baea$date)) - days(3)))
-      baea <- subset(baea, date <= (as.Date(max(baea$date)) - days(3)))
-        max(baea$date)
-        min(existing$date)
-    # 3 days are removed from baea to ensure that AddSegmentTimeLength, etc. was
-    # done on a full dataset. The baea and existing datasets should not overlap.
-      if(!("sunrise" %in% colnames(existing))) {
-        existing <- AddSolarTimes(existing)
-      }
-      existing <- AddStepLengthAndAngles(existing)
-      existing <- AddStepTime(existing)
-      existing <- AddTimeStepProportion(existing)
-      existing <- AddFirstLastDistance(existing)
-      baea_full <- rbind(baea, existing)
-      baea_full <- unique(baea_full)
-      baea_full <- baea_full[with(baea_full,order(id,datetime)),]
-      row.names(baea_full) <- NULL
-      date <- Sys.Date()
-      outfile <- paste("C:/Work/R/Data/BAEA/Archive/BAEA_", date, ".csv",
-        sep ="")
-      if (!file.exists(outfile)) {
-        writeLines(noquote(paste("Merging existing and import")))
-        write.csv(baea_full, file=outfile, row.names=FALSE)
-        writeLines(noquote(c("Writing: ", outfile, sep = "")))
-      }
-      write.csv(baea_full, file="C:/Work/R/Data/BAEA/BAEA.csv", row.names=FALSE)
-        # rewrites import file
-      writeLines(noquote("Writing: \"C:/Work/R/Data/BAEA/BAEA.csv\""))
-      baea <- baea_full
-    }
-  }
-  if (import == FALSE) {
-  writeLines(noquote(paste("BAEA.csv was NOT imported")))
-    if (!is.null(existing)) {
-      if(!("sunrise" %in% colnames(existing))) {
-        existing <- AddSolarTimes(existing)
-      }
-      existing <- AddStepLengthAndAngles(existing, by = "id")
-      existing <- AddStepTime(existing, by = "id")
-      existing <- AddTimeStepProportion(existing)
-      existing <- AddFirstLastDistance(existing)
-      writeLines(noquote(paste("Coverted existing to baea", sep="")))
-      baea <- existing
-      } else {
-        writeLines(noquote("Nothing imported or converted"))
-      }
-  }
-    return(baea)
 }
 
 #' Plots daily behavior proportions as bars
@@ -2184,169 +2003,4 @@ PlotRoostHistogram <- function(df,
    title="Histogram of Roost Data with Fitted Weibull Distributions")
 }
 
-#' Updates weekly baea data and send emails
-#'
-#' Compiles and manages csv files and kml files in order to create individual
-#'   .csv and .kml files, weekly .kml files, and send an email with weekly .kml
-#'   file.
-#'
-#' @param data Dataframe of deployed data.
-#' @param download_recent Logical, whether or not to download recent GPS data,
-#'   default is FALSE
-#' @param send_email Logical, whether or not to send an email, default is TRUE.
-#' @param date Date within week to update, default is now().
-#' @param to String, recipients of email, default: c("erynn.call@maine.gov",
-#'   "charlie.todd@maine.gov").
-#'
-#' @return Creates files in "C:/Work/R/Data/BAEA/Telemetry" and
-#' @importFrom magrittr "%>%"
-#' @export
-#'
-#' @details Specific to my Bald Eagle Project.
-UpdateWeeklyData <- function(data = data,
-                             download_recent = FALSE,
-                             send_email = TRUE,
-                             date = now(),
-                             to = c("erynn.call@maine.gov",
-                                   "charlie.todd@maine.gov")){
-  date <- as.POSIXct(date)
-  data <- data
-  if (download_recent == TRUE) {
-    # Download recent deployed Data
-    DownloadCTT(units="deployed", download="recent")
-    deployed_recent <- CompileDownloads (units="deployed", compile="recent")
-    data <- ImportUnits(units="deployed", existing=deployed_recent,
-      import=TRUE)
-  }
-  # Update local individual files
-  ExportTelemetryDataById(data)
-  ExportTelemetryKMLByYear(data, update=TRUE)
-  # Copy all data files to Google Drive
-  input_dir_all = file.path("C:/Work/R/Data/BAEA/Telemetry/All")
-  output_dir_all = file.path("C:/Users/Blake/Google Drive/PhD Program",
-    "BAEA Project/Telemetry Data/All")
-  csv_file_all <- list.files(file.path(input_dir_all, "CSVs"), full.names=TRUE)
-  do.call(file.remove, list(list.files(file.path(output_dir_all, "CSVs"),
-    full.names=TRUE)))
-  file.copy(csv_file_all, file.path(output_dir_all, "CSVs"))
-  # Copy individual files to Google Drive
-  input_dir = file.path("C:/Work/R/Data/BAEA/Telemetry/Individuals")
-  output_dir = file.path("C:/Users/Blake/Google Drive/PhD Program/BAEA Project",
-    "Telemetry Data/Individuals")
-  csv_files <- list.files(file.path(input_dir, "CSVs"), full.names=TRUE)
-  kml_files <- list.files(file.path(input_dir, "KMLs"), full.names=TRUE)
-  do.call(file.remove, list(list.files(file.path(output_dir, "CSVs"),
-    full.names=TRUE)))
-  file.copy(csv_files, file.path(output_dir, "CSVs"))
-  file.copy(kml_files, file.path(output_dir, "KMLs"))
-  # Filter data to current week
-  start_date <- as.character(floor_date(date-period(1, "day"), "week"))
-  end_date <- as.character(ceiling_date(date-period(1, "day"), "week"))
-  deployed <- FilterLocations(df=deployed_all, id="id", individual="",
-    start=start_date, end=end_date)
-  # Export KML of Locations
-  ExportKMLTelemetryBAEA(df=deployed, file="BAEA Data.kml")
-  kml_file <- "C:/Users/Blake/Desktop/BAEA Data.kml"
-  start_date2 <- gsub("-", "", start_date)
-  end_date2 <- gsub("-", "", end_date)
-  kml_output <- file.path(input_dir_all, "KMLs", paste0("BAEA_Data", "_",
-    start_date, "_", end_date, ".kml"))
-  file.copy(kml_file, kml_output)
-  file.copy(kml_output, file.path(output_dir_all, "KMLs"))
-  if (send_email == TRUE) {
-    library(rJava)
-    library(mailR)
-    attachments <- kml_output
-    mailr_file <- read.csv("C:/Work/R/Data/MailR/mailR.csv", header=FALSE,
-      stringsAsFactors=FALSE)
-    body <- paste0("Erynn,", "\n\n", "Attached is a KML file of the available ",
-      "Bald Eagle GPS location data for ", start_date, " to ", end_date, ".\n",
-      "\n", "Additional locations for this period may be added when new data ",
-      "becomes available. For the most complete datasets, please refer to the ",
-      "compiled individual data located on Google Drive at:",
-      "Telemetry Data/Individuals.", "\n",
-      "\n", "Thanks,", "\n", "Blake", "\n\n\n", "Blake Massey", "\n",
-      "PhD Student", "\n", "University of Massachusetts", "\n",
-      "Department of Environmental Conservation", "\n", "160 Holdsworth Way",
-      "\n", "Amherst, MA 01003", "\n", "bhmassey@eco.umass.edu","\n",
-      "928-254-9221 (cell)")
-    subject <- paste("BAEA GPS Data:", start_date, "to", end_date)
-    send.mail(from=mailr_file[1,2], to=to, subject=subject, body=body,
-      smtp = list(host.name="smtp.gmail.com", port=465, user.name="blakemassey",
-      passwd=mailr_file[1,3], ssl=TRUE), attach.files=attachments,
-      authenticate=TRUE, send=TRUE)
-  }
-}
 
-#' Updates weekly .kml files
-#'
-#' Updates weekly KML files on local and GDrive folders. All weekly intervals
-#'   are set to be from Sunday to Saturday, inclusive. All start and end dates
-#'   will be adjusted to the beginning or end, respectively, of that week.
-#'
-#' @param data Dataframe of location data.
-#' @param start String, start date.
-#' @param end String, end date.
-#' @param update_gdrive Logical, whether to update the files on the GDrive.
-#'   Default is TRUE
-#'
-#' @return Creates .kml files in "C:/Work/R/Data/BAEA/Telemetry" and
-#'   "C:/Users/Blake/Google Drive/BAEA Project/Telemetry Data" folders.
-#' @export
-UpdateWeeklyKMLFiles <- function(data,
-                                 start,
-                                 end,
-                                 update_gdrive = TRUE){
-  data <- data
-  start_date <- floor_date(as.POSIXct(start), "week")
-  end_date <- ceiling_date(as.POSIXct(end), "week")
-  diff_days <- difftime(end_date, start_date)
-  rep_interval <- as.interval(diff_days, start_date)
-  step_period <- as.period(1, "week")
-  step_period <- step_period
-  step_intervals <- list()
-  interval_counter <- 1
-  current_start <- int_start(rep_interval)
-  current_end <- (current_start + step_period)
-  stop_point <- int_end(rep_interval)
-  while(current_start < (stop_point)) {
-    current_end <- (current_start+step_period)
-    step_intervals[[interval_counter]] <- interval(current_start,
-      current_end)
-    interval_counter <- interval_counter + 1
-    current_start <- current_start + step_period
-  }
-  if(int_end(step_intervals[[length(step_intervals)]]) > stop_point){
-    step_intervals[[length(step_intervals)]] <- NULL
-  }
-  kml_folder = file.path("C:/Work/R/Data/BAEA/Telemetry/All/KMLs")
-  kml_files <-list.files(kml_folder, full.names=TRUE)
-  for (i in 1:length(step_intervals)){
-    step_interval <- step_intervals[[i]]
-    start_int <- as.character(int_start(step_interval))
-    end_int <- as.character(int_end(step_interval))
-    file.remove(kml_files[grep(start_int, kml_files)]) # removes old file
-    interval_data <- FilterLocations(df=data, id="id", individual="",
-      start=start_int, end=end_int)
-    if (nrow(interval_data) > 0){
-      end_int2 <- as.character(int_end(step_interval)-period(1, "day"))
-      kml_file <- paste0("BAEA_Data", "_", start_int, "_", end_int2, ".kml")
-      ExportKMLTelemetryBAEA(df=interval_data, output_dir=kml_folder,
-        file=kml_file)
-    } else {
-      end_int2 <- as.character(int_end(step_interval)-period(1, "day"))
-      kml_file <- paste0("BAEA_Data", "_", start_int, "_", end_int2,
-        "(empty).kml")
-      cat("<kml>\n<Document>\n</Document>\n</kml>", file=file.path(kml_folder,
-        kml_file), append=TRUE)
-    }
-    if (update_gdrive == TRUE) {
-      kml_gdrive_folder <- file.path("C:/Users/Blake/Google Drive",
-        "PhD Program/BAEA Project/Telemetry Data/All/KMLs")
-      kml_gdrive_files <- list.files(kml_gdrive_folder, full.names=TRUE)
-      file.remove(kml_gdrive_files[grep(start_int, kml_gdrive_files)])
-      file.copy(file.path(kml_folder, kml_file), file.path(kml_gdrive_folder,
-        kml_file))
-    }
-  }
-}
