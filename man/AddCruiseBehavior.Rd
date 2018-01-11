@@ -4,7 +4,7 @@
 \alias{AddCruiseBehavior}
 \title{Adds cruise behavior}
 \usage{
-AddCruiseBehavior(df, alt_abv_grd, min_speed)
+AddCruiseBehavior(df, min_agl, min_speed, threshold_agl)
 }
 \arguments{
 \item{df}{dataframe}
@@ -12,6 +12,9 @@ AddCruiseBehavior(df, alt_abv_grd, min_speed)
 \item{min_agl}{distance (in meters) above ground}
 
 \item{min_speed}{minimum speed of bird}
+
+\item{threshold_agl}{any locations above this threshold of agl ('above ground
+level') are labeled "cruise"}
 }
 \value{
 dataframe with behavior column that has "cruise"

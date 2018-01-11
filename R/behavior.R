@@ -2,10 +2,12 @@
 #'
 #' Finds cruise behavior that meet given threshold parameters
 #'
-#' @usage AddCruiseBehavior(df, alt_abv_grd, min_speed)
+#' @usage AddCruiseBehavior(df, min_agl, min_speed, threshold_agl)
 #' @param df dataframe
 #' @param min_agl distance (in meters) above ground
 #' @param min_speed minimum speed of bird
+#' @param threshold_agl any locations above this threshold of agl ('above ground
+#'     level') are labeled "cruise"
 #'
 #' @return dataframe with behavior column that has "cruise"
 #' @export
@@ -14,11 +16,19 @@
 #'   prior to this function
 AddCruiseBehavior <- function(df = df,
                               min_agl = 200,
-                              min_speed = 5) {
-  df <- df
-  df$behavior <- ifelse(df$agl >= min_agl & df$speed >= min_speed &
-    is.na(df$behavior), "cruise", df$behavior)
-  return(df)
+                              min_speed = 5,
+                              threshold_agl = 250) {
+  df_cruise <- df %>%
+    dplyr::mutate(bh_cruise = as.character(NA) ) %>%
+    dplyr::mutate(bh_cruise = dplyr::if_else(agl >= min_agl &
+        speed >= min_speed, "Cruise", bh_cruise)) %>%
+    dplyr::mutate(bh_cruise = dplyr::if_else(agl >= threshold_agl, "Cruise",
+      bh_cruise)) %>%
+    dplyr::mutate(
+      bh_cruise_tf = dplyr::if_else(!is.na(bh_cruise), TRUE, FALSE),
+      bh_cruise_seq = sequence(rle(bh_cruise_tf)$lengths) * bh_cruise_tf) %>%
+    dplyr::select(-bh_cruise_tf)
+  return(df_cruise)
 }
 
 #' Adds flight behavior
@@ -26,48 +36,37 @@ AddCruiseBehavior <- function(df = df,
 #' Finds location data that meet given threshold parameters for flights, which
 #'   include the start point, mid-flight, and final location of a flight.
 #'
+#' @usage AddFlightBehavior(df, min_speed, min_step_length, max_step_time,
+#'     threshold_agl)
 #' @param df dataframe
 #' @param min_speed minimum speed of bird
 #' @param min_step_length distance (in meters) between locations
 #' @param max_step_time maximum time between locations
+#' @param threshold_agl any locations above this threshold of agl ('above ground
+#'     level') are labeled "cruise"
 #'
 #' @return dataframe with columns for flight_index, flight_step, and
 #'  flight_length
 #' @export
 #'
-#' @details should run AddLandscapeValues() prior to this function
-AddFlightData <- function(df,
-                          min_speed = 5,
-                          min_step_length = 50,
-                          max_step_time = 20){
-  df_org <- df
-  df <- df
-  df$flight <- ifelse(df$speed > min_speed, TRUE, FALSE)
-  df$movement <- ifelse(df$step_length > min_step_length, TRUE, FALSE)
-  df$within_window <- ifelse(df$step_time < max_step_time, TRUE , FALSE)
-  moved <- ifelse(df$step_length > min_step_length, TRUE, FALSE)
-  df$moved <- c(NA, moved[-length(moved)])
-  df$mid_flight <- ifelse(df$moved == TRUE & df$movement == TRUE &
-    df$flight == TRUE, TRUE, FALSE)
-  df$index <- seq.int(nrow(df))
-  before <- which(df$mid_flight == TRUE) - 1
-  mid <- which(df$mid_flight == TRUE)
-  after <- which(df$mid_flight == TRUE) + 1
-  complete <- sort.int(unique(c(before, mid, after)))
-  flights <- df[complete,c("id", "datetime", "index", "mid_flight")]
-  index1 <- c(which(!diff(flights$index)==1), nrow(flights))
-  index2 <- c(1, index1 + 1)  # index of first records of sequential groups
-  index3 <- diff(index2)  # length of each seq group
-  index4 <- rep(seq(1,length(index3), by=1), times=index3)
-  flights$flight_index <- index4
-  flights$flight_step <- sequence(rle(flights$flight_index)$lengths)
-  flights$flight_index <- factor(index4)
-  flights <- plyr::ddply(flights, .(flight_index, id), transform,
-    flight_length=length(flight_step))
-  df2 <- suppressMessages(plyr::join(df_org, flights))
-  df2$index <- NULL
-  return(df2)
+#' @details adds 'bh_flight' to dataframe
+AddFlightBehavior <- function(df,
+                              min_speed = 5,
+                              min_step_length = 50,
+                              max_step_time = 20,
+                              threshold_agl = 100){
+  df_flight <- df %>%
+    plyr::mutate(bh_flight = as.character(NA)) %>%
+    plyr::mutate(bh_flight = dplyr::if_else(speed >= min_speed &
+        step_time < max_step_time & step_length > min_step_length, "Flight",
+        bh_flight)) %>%
+    plyr::mutate(bh_flight = dplyr::if_else(agl >= threshold_agl, "Flight",
+      bh_flight))
+  return(df_flight)
 }
+
+
+
 
 #' Adds home and conspecific edge distances to 'baea' dataframe
 #'
@@ -141,7 +140,7 @@ AddHomeConEdgeDistanceBAEA <- function(baea,
     homerange_ids <- df_home[,id]
     total <- length(homerange_ids)
     for (j in 1:nrow(df_home)) {
-      hr_nest_site <- df_home[j, id]
+      hr_nest_site <- df_home[j,] %>% dplyr::select(id) %>% dplyr::pull()
       id_year_xy <- baea %>%
         dplyr::filter(nest_site == hr_nest_site) %>%
         dplyr::filter(year == i) %>%
@@ -193,8 +192,6 @@ AddHomeConEdgeDistanceBAEA <- function(baea,
         writeRaster(con_dist_nest, filename=filename, format="GTiff",
           overwrite=TRUE)
       }
-
-
       baea[sv, "con_dist"] <- raster::extract(con_dist, id_year_xy)
       baea[sv, "con_dist_min"] <- cellStats(con_dist, min)
       baea[sv, "con_dist_nest"] <- raster::extract(con_dist, home_sp)
@@ -205,8 +202,8 @@ AddHomeConEdgeDistanceBAEA <- function(baea,
       rm(con_dist)
       global_dist_crop <- distanceFromPoints(base_crop, df_all_sp)
       rm(base_crop)
-      cent_dist <- overlay(home_dist, global_dist_crop, fun=function (x,y)
-        {ifelse(x != y, NA, x)})
+      cent_dist <- overlay(home_dist, global_dist_crop, fun = function(x,y){
+        ifelse(x != y, NA, x)})
       baea[sv, "home_dist"] <- raster::extract(home_dist, id_year_xy)
       distance_df[k, "home_dist_min"] <- cellStats(home_dist, min)
       distance_df[k, "home_dist_max"] <- cellStats(home_dist, max)
@@ -368,19 +365,19 @@ AddHomeRangeKernelsBAEA <- function(baea,
 #' Finds nest attendance behavior that meet given threshold parameters
 #'
 #' @param df dataframe
-#' @param distance_to_nest distance (in meters) from location to nest to assign
+#' @param distance_threshold distance (in meters) from location to nest to assign
 #'   a location as "nest" behavior
 #'
-#' @return dataframe with behavior column that has "nest"
+#' @return dataframe with 'bh_nest' column that has "nest"
 #' @export
 #'
 #' @details need to run AddNestData() prior to running this
 #'
 AddNestBehavior <- function(df = df,
-                            distance_to_nest = 50) {
-  df<-df
-  df$behavior <- NA
-  df$behavior <- ifelse(df$nest_dist <= distance_to_nest, "nest", df$behavior)
+                            distance_threshold = 50) {
+  df <- df
+  df <- df %>%
+    mutate(bh_nest = ifelse(nest_dist <= distance_threshold, "Nest", NA))
   return(df)
 }
 
@@ -421,8 +418,6 @@ AddNestConDist<- function(df,
   return(output)
 }
 
-
-
 #' Add perch behavior
 #'
 #' Finds perch behavior that meets given threshold parameters
@@ -439,8 +434,7 @@ AddNestConDist<- function(df,
 AddPerchBehavior <- function(df = df,
                              max_speed = 5) {
   df <- df
-  df$behavior <- NA
-  df$behavior <- ifelse(df$speed < max_speed, "perch", df$behavior)
+  df$bh_perch <- ifelse(df$speed < max_speed, "perch", df$behavior)
   return(df)
 }
 
@@ -448,167 +442,64 @@ AddPerchBehavior <- function(df = df,
 #'
 #' Finds roost arrivals and departures that meet given threshold parameters
 #'
-#' @usage AddRoostBehavior(df, overnight_distance_threshold,
-#'   at_roost_distance_threshold, daily_location_threshold)
+#' @usage AddRoostBehavior(df, at_roost_distance_threshold, depart_timediff_max,
+#'   arrive_timediff_max)
 #'
 #' @param df dataframe
-#' @param default_tz used in IfElseTimedateNA/Compare functions
-#' @param tz  timezone, default is "Etc/GMT+5"
-#' @param overnight_distance_threshold max overnight distance
-#' @param at_roost_distance_threshold  max distance away from roost
+#' @param at_roost_distance_threshold  numeric max distance away from roost
 #' @param depart_timediff_max max diff between start of day and depart
 #' @param arrive_timediff_max max diff between end of day and arrival
 #'
-#' @return dataframe with roost column that has arrive, depart, and roost
+#' @return dataframe with 'bh_roost' column that has arrive, depart, and roost
 #' @export
 #'
-#' @details automatically makes sure that data exists for the following day,
-#'   automatically checks that there are at least 7 locations in the first/last
-#'   two hours of the day for departure/arrive
-AddRoostBehavior <- function(df = baea,
-                             default_tz = "America/New_York",
-                             tz = "Etc/GMT+5",
-                             overnight_distance_threshold = 100,
+#' @details Adds 'bh_roost' column
+AddRoostBehavior <- function(df,
                              at_roost_distance_threshold = 50,
                              depart_timediff_max = 1000,
                              arrive_timediff_max = 1000){
-  df$time_after_start <- as.integer(difftime(df$datetime,
-    df$hr_before_sunrise, tz=tz, units = ("mins")))
-  df$time_before_end <- as.integer(difftime(df$hr_after_sunset, df$datetime,
-    tz=tz, units = ("mins")))
-  df$two_hr_after_sunrise <- df$hr_before_sunrise + hours(2)
-  df$two_hr_before_sunset <- df$hr_after_sunset - hours(2)
-  df$sunrise_window_loc <- df$datetime <= df$two_hr_after_sunrise
-  df$sunset_window_loc <- df$datetime >= df$two_hr_before_sunset
-  sumstats <- plyr::ddply(df, .(id, date), summarize,
-    date = as.Date(unique(date)), total_loc = length(deploy_seq),
-    am_loc = sum(sunrise_window_loc, na.rm=TRUE),
-    pm_loc = sum(sunset_window_loc, na.rm=TRUE))
-  nextday <- function(data = data){
-    out <- sapply(2:nrow(data),function(i){data$date[i] - data$date[i-1]})
-    next_day <- c(out, NA)
-    next_day
-  }
-  nextamloc <- function(data = data){
-    out <- sapply(1:nrow(data),function(i) { data$am_loc[i+1] })
-    next_am_loc <- c(out)
-    next_am_loc
-  }
-  list <- by(sumstats, sumstats$id, function(x) nextday(x))  # makes list
-  sumstats$nextdayGPS <- unlist(list)
-  list <- by(sumstats, sumstats$id, function(x) nextamloc(x))  # makes list
-  sumstats$next_am_loc <- unlist(list)
-  # At this point, sumstats has: "id", "date", "total_locs", "nextdayGPS",
-  # "am_loc", "pm_loc", and "next_am_loc"
-  # This has all the data needed to cull by nextDayGPS, and am/pm locations
-  df<-merge(df, sumstats, by = c("id", "date"), all.x = TRUE)
-  last_threshold<- function(data, threshold=overnight_distance_threshold){
-    subset (data, last == "Last" & step_length <= threshold & nextdayGPS == 1 &
-    pm_loc >= 7 & next_am_loc >= 7, select=c("id", "date"))
-  }
-  last_roost_confirmed <- last_threshold(data = df,
-    threshold=overnight_distance_threshold)
-  # This culls by overnight segment length, if next day has GPS locations, if
-  # there are at least 7 locations within an hour of either side of sunset
-  # and if there are at least 7 locations within an hour of either side of
-  # sunrise on the following morning.
-  row.names(last_roost_confirmed) <- NULL  # housekeeping
-  first_roost_confirmed <- adply(last_roost_confirmed, 1, transform,
-    date = date+1)  # the mornings after "last_roost_confirmed" dates
-  roost_arrival_filtered <- join (df, last_roost_confirmed, type="inner")
-    # to "confirm" arrival based on overnight distance
-  roost_departure_filtered <- join (df, first_roost_confirmed,
-    type = "inner")  # to "confirm" departure based on overnight distance
-  threshold_dist <- function(x, threshold=at_roost_distance_threshold) {
-    x > threshold
-  }
-  # This function sets the distance a location can still be considered at roost
-  # based on its distance to the last and first locations
-  depart <- plyr::ddply(roost_departure_filtered, .(date, id), function(x)
-    x[(Position(threshold_dist, x$dist_first, right = FALSE, nomatch = NULL)
-       - 1), c("id","date", "datetime")])
-  arrive <- plyr::ddply(roost_arrival_filtered, .(date, id), function(x)
-    x[(Position(threshold_dist, x$dist_last, right = TRUE, nomatch = NULL) + 1),
-      c("id", "date", "datetime")])
-  arrive$arr_dist_threshold_datetime <- arrive$datetime
-  depart$dep_dist_threshold_datetime <- depart$datetime
-  arrive$datetime <- NULL
-  depart$datetime <- NULL
-  threshold_time_depart <- function(x, threshold=depart_timediff_max) {
-    x>threshold
-  }
-  threshold_time_arrive <- function(x, threshold=arrive_timediff_max) {
-    x>threshold
-  }
-  depart_max <- plyr::ddply(roost_departure_filtered, .(date, id),
-    function(x) x[nrow(x), c("id","date", "datetime")])
-  arrive_max <- plyr::ddply(roost_arrival_filtered, .(date, id),
-    function(x) x[1, c("id","date", "datetime")])
-  depart_max$max_datetime <- depart_max$datetime
-  arrive_max$max_datetime <- arrive_max$datetime
-  depart_max$datetime <- NULL
-  arrive_max$datetime <- NULL
-  # max_datetime is the first/last record in the day
-  depart_threshold <- plyr::ddply(roost_departure_filtered, .(date, id),
-    function(x) x[(Position(threshold_time_depart, x$time_after_start,
-    right = FALSE, nomatch = NULL) - 1), c("id","date", "datetime")])
-  arrive_threshold <- plyr::ddply(roost_arrival_filtered, .(date, id),
-    function(x) x[(Position(threshold_time_arrive, x$time_before_end,
-    right = TRUE, nomatch = NULL) + 1), c("id","date", "datetime")])
-  depart_threshold$threshold_datetime <- depart_threshold$datetime
-  arrive_threshold$threshold_datetime <- arrive_threshold$datetime
-  depart_threshold$datetime <- NULL
-  arrive_threshold$datetime <- NULL
-  # threshold_dateime is the first record within the threshold
-  depart_max <- merge(depart_max, depart_threshold, by = c("date", "id"),
-    all.x= TRUE)
-  arrive_max <- merge(arrive_max, arrive_threshold, by = c("date", "id"),
-    all.x= TRUE)
-  rm(arrive_threshold, depart_threshold)
-  depart_max <- IfElseTimedateNA(df=depart_max, col1="threshold_datetime",
-    col2="max_datetime", result="max_threshold", default_tz=default_tz, tz=tz)
-  arrive_max <- IfElseTimedateNA(df=arrive_max, col1="threshold_datetime",
-    col2="max_datetime", result="max_threshold", default_tz=default_tz, tz=tz)
-  depart <- merge(depart, depart_max, by = c("date", "id"), all.x= TRUE)
-  arrive <- merge(arrive, arrive_max, by = c("date", "id"), all.x= TRUE)
-  depart <- IfElseTimedateCompare(df=depart, col1="dep_dist_threshold_datetime",
-    sign="<", col2="max_threshold", result="dep_datetime",
-    default_tz=default_tz, tz=tz)
-  arrive <- IfElseTimedateCompare(df=arrive, col1="max_threshold", sign=">",
-    col2="arr_dist_threshold_datetime", result="arr_datetime",
-    default_tz=default_tz, tz=tz)
-  roost_times <- merge(depart, arrive, by = c("date", "id"), all = TRUE)
-  roost_times <- subset(roost_times, select=c("date", "id", "dep_datetime",
-    "dep_dist_threshold_datetime", "arr_datetime",
-    "arr_dist_threshold_datetime"))
-  df <- merge(df, roost_times, by = c("date", "id"), all= TRUE)
-  df <- df[with(df, order(id, date, datetime)), ]
-  df$loaf <- NA
-  df$loaf <- ifelse(df$datetime <= df$dep_dist_threshold_datetime, "loaf", NA)
-  df$loaf <- ifelse(is.na(df$loaf) & df$datetime >=
-    df$arr_dist_threshold_datetime, "loaf", df$loaf)
-  df$depart <- ifelse(df$datetime == df$dep_datetime, "depart", NA)
-  df$arrive <- ifelse(df$datetime == df$arr_datetime, "arrive", NA)
-  df$depart <- ifelse(is.na(df$depart) & !is.na(df$dep_datetime) &
-                         df$datetime < df$dep_datetime, "roost", df$depart)
-  df$arrive <- ifelse(is.na(df$arrive) & !is.na(df$arr_datetime) &
-                         df$datetime > df$arr_datetime, "roost", df$arrive)
-  df$roost <- ifelse(is.na(df$depart),df$arrive,df$depart)
-  df$roost_loaf <- ifelse(!is.na(df$roost), df$roost,
-    df$loaf)
-  if (!("behavior" %in% colnames(df))) df$behavior<-NA
-  df$behavior <- ifelse(!is.na(df$roost_loaf) & is.na(df$behavior),
-    df$roost_loaf, df$behavior)
-  drops <- c("arrive", "depart", "total_loc", "nextdayGPS", "dep_datetime",
-    "two_hr_after_sunrise", "two_hr_before_sunset", "sunrise_window_loc",
-    "arr_datetime", "sunset_window_loc", "am_loc", "pm_loc", "next_am_loc",
-    "roost", "loaf", "roost_loaf" ,"dep_dist_threshold_datetime",
-    "arr_dist_threshold_datetime")
-  df <- df[ ,!(names(df) %in% drops)]
-  row.names(df) <- NULL
-  return(df)
-}
 
+  df <- df
+  df_departure <- df %>% filter(datetime < solarnoon)
+  df_arrival <- df %>% filter(datetime > solarnoon)
+  depart <- df_departure %>%
+    group_by(date, id) %>%
+    mutate(away_from_roost = if_else(dist_first > at_roost_distance_threshold,
+      1, 0)) %>%
+    mutate(depart_roost = away_from_roost == 1 &
+      !duplicated(away_from_roost == 1)) %>%
+    mutate(lead_depart = lead(depart_roost, 1)) %>%
+    mutate(roost = ifelse(lead_depart == 1, "Depart", NA)) %>%
+    mutate(pos_depart = which(roost == "Depart")[1]) %>%
+    mutate(pos_all = 1) %>%
+    mutate(pos_cumsum = cumsum(pos_all)) %>%
+    mutate(roost = ifelse(pos_cumsum < pos_depart, "Roost", roost)) %>%
+    ungroup() %>%
+    dplyr::select(id, datetime, roost) %>%
+    mutate(roost_depart = TRUE)
+  arrive <- df_arrival %>%
+    group_by(date, id) %>%
+    arrange(desc(datetime)) %>%
+    mutate(away_from_roost = if_else(dist_last > 50, 1, 0)) %>%
+    mutate(arrive_roost = away_from_roost == 1 &
+      !duplicated(away_from_roost == 1)) %>%
+    mutate(lead_arrive = lead(arrive_roost, 1)) %>%
+    mutate(roost = ifelse(lead_arrive == 1, "Arrive", NA)) %>%
+    mutate(pos_arrive = which(roost == "Arrive")[1]) %>%
+    mutate(pos_all = 1) %>%
+    mutate(pos_cumsum = cumsum(pos_all)) %>%
+    mutate(roost = ifelse(pos_cumsum < pos_arrive, "Roost", roost)) %>%
+    arrange(id, datetime) %>%
+    ungroup() %>%
+    dplyr::select(id, datetime, roost) %>%
+    mutate(roost_arrive = TRUE)
+  df_roost <- full_join(arrive, depart, by = c("id", "datetime")) %>%
+    arrange(id, datetime) %>%
+    mutate(bh_roost = coalesce(roost.x, roost.y)) %>%
+    dplyr::select(id, datetime, bh_roost)
+  df_final <- left_join(df, df_roost, by = c("id", "datetime"))
+  return(df_final)
+}
 
 #' Adds 'season' to dataframe
 #'
@@ -624,7 +515,6 @@ AddRoostBehavior <- function(df = baea,
 #' @export
 #'
 #'
-
 AddSeason <- function(df,
                       date_col = "date"){
   df <- df
@@ -1450,6 +1340,68 @@ CreateHomeRangeKernelsParetoGamma <- function(df_all,
   return(homerange_kernels)
 }
 
+#' Create a dataframe of flight path segments
+#'
+#' Adds flight path segments, which includes locations before and after "flight"
+#' behavior. Segments are sequentially numbered for each individual. Used for
+#' visualization and analysis of flight paths. Some locations may be represented
+#' twice because they are both the start and end of a path.
+#'
+#' @param df dataframe
+#'
+#' @import dplyr
+#' @importFrom magrittr "%>%"
+#' @return dataframe with columns for 'id', 'behavior', and 'path_seg'.
+#' @export
+#'
+#' @details adds 'path_seg' to dataframe
+CreateFlightPathSegments <- function(df){
+ df_split <- df %>%
+    as.data.frame(.) %>%
+    group_by(id) %>%
+    mutate(datetime_lead = lead(datetime, 1)) %>%
+    mutate(step_time2 = as.integer(difftime(datetime_lead, datetime,
+      units = "mins"))) %>%
+    mutate(step_time_prev = lag(step_time2, 1, default = 0)) %>%
+    mutate(split_time = if_else(step_time_prev > 20, 1, 0)) %>%
+    mutate(split_time_grp = cumsum(split_time)) %>%
+    group_by(split_time_grp) %>%
+    mutate(behavior_lead = lead(behavior, 1)) %>%
+    mutate(start_flight = if_else(behavior_lead == "Flight" &
+        behavior != "Flight", 1, 0)) %>%
+    mutate(behavior_lag = lag(behavior, 1)) %>%
+    mutate(end_flight = if_else(behavior_lag == "Flight" &
+        behavior != "Flight", 1, 0))  %>%
+    mutate(bh_flight_tf = if_else(behavior == "Flight", TRUE, FALSE),
+      bh_flight_seq = (sequence(rle(bh_flight_tf)$lengths) * bh_flight_tf)) %>%
+    ungroup() %>%
+    dplyr::select(-c(datetime_lead, step_time2, split_time, split_time_grp,
+      step_time_prev, behavior_lead, behavior_lag, bh_flight_tf))
+  df_path <- df_split %>%
+    group_by(id) %>%
+    filter(start_flight != 0 | end_flight != 0 | bh_flight_seq != 0) %>%
+    mutate(datetime_lead = lead(datetime, 1)) %>%
+    mutate(step_time2 = as.integer(difftime(datetime_lead, datetime,
+      units = "mins"))) %>%
+    mutate(step_time_prev = lag(step_time2, 1, default = 0)) %>%
+    mutate(split_time = if_else(step_time_prev > 20, 1, 0)) %>%
+    mutate(split_time_grp = cumsum(split_time)) %>%
+    group_by(id, split_time_grp) %>%
+    mutate(first_loc = ifelse(row_number()==1, 1, 0)) %>%
+    ungroup(.) %>%
+    dplyr::select(-c(datetime_lead, step_time2, split_time, step_time_prev))
+  df_dup <- df_path %>%
+    filter(start_flight == 1 & end_flight == 1) %>%
+    mutate(first_loc = 1)
+  df_out <- rbind(df_path, df_dup) %>%
+    arrange(id, datetime, first) %>%
+    group_by(id) %>%
+    mutate(path_seg = cumsum(first_loc)) %>%
+    ungroup(.) %>%
+    dplyr::select(-c(start_flight, end_flight, first_loc))
+  return(df_out)
+}
+
 #' Extracts flight data
 #'
 #' Extracts the data associated with 'flight' for each bird, based on speed
@@ -1563,7 +1515,7 @@ FilterByNestCriteria <- function(df,
   df <- df %>% filter(season %in% seasons)
   df_sum <- df %>%
     group_by(id, date) %>%
-    summarize(nest_dist_dymean = mean(nest_dist),
+    summarize(nest_dist_dy_mean = mean(nest_dist),
       nest_dist_min = min(nest_dist)) %>%
     mutate(nest_dist_met = if_else(nest_dist_min <  min_daily_nest_dist, TRUE,
       FALSE)) %>%
@@ -1572,9 +1524,9 @@ FilterByNestCriteria <- function(df,
     df_sum <- df %>%
       group_by(id, date) %>%
       mutate(
-        nest_dist_run_3dy = zoo::rollmean(nest_dist_dymean, roll_days, fill=NA,
+        nest_dist_run = zoo::rollmean(nest_dist_dy_mean, roll_days, fill=NA,
           na.pad=TRUE, align="left"),
-        roll_dist_met = if_else(nest_dist_run_3dy <  min_roll_days_nest_dist,
+        roll_dist_met = if_else(nest_dist_run <  min_roll_days_nest_dist,
           TRUE, FALSE)) %>%
       ungroup()
   }  else {
@@ -1582,14 +1534,80 @@ FilterByNestCriteria <- function(df,
   }
   df_final <- left_join(df, df_sum, by = c("id", "date")) %>%
       filter(!is.na(nest_dist_met) && !is.na(roll_dist_met)) %>%
-      filter(nest_dist_met == TRUE, roll_dist_met == TRUE)
+      filter(nest_dist_met == TRUE, roll_dist_met == TRUE) #%>%
+     # dplyr::select(-c(nest_dist_dy_mean, nest_dist_min, nest_dist_met,
+    #    roll_dist_met))
   return(df_final)
-
 }
 
 
+#' Filter Locations by Roost Criteria
+#'
+#' @usage FilterByRoostBehavior(df, min_daily_nest_dist, roll_days,
+#'   min_roll_days_nest_dist, seasons)
+#'
+#' @param df dataframe of locations
+#' @param overnight_distance_threshold numeric, distance that last PM location
+#'   and first AM location must be less than for it to be considered a
+#'   confirmed roost location
+#' @param number_am_loc numeric, number of GPS locations needed for AM window,
+#'   default is 7.
+#' @param number_pm_loc numeric, number of GPS locations needed for PM window,
+#'   default is 7.
+#' @param tz timezone, default is "Etc/GMT+5"
+#'
+#' @return dataframe
+#' @export
+#'
+#' @import dplyr
+#'
+FilterByRoostCriteria <- function(df = df,
+                                  overnight_distance_threshold = 100,
+                                  number_pm_loc = 7,
+                                  number_am_loc = 7,
+                                  tz = "Etc/GMT+5"){
+  df <- df
+  df$time_after_start <- as.integer(difftime(df$datetime,
+    df$hr_before_sunrise, tz=tz, units = ("mins")))
+  df$time_before_end <- as.integer(difftime(df$hr_after_sunset, df$datetime,
+    tz=tz, units = ("mins")))
+  df$two_hr_after_sunrise <- df$hr_before_sunrise + hours(2)
+  df$two_hr_before_sunset <- df$hr_after_sunset - hours(2)
+  df$sunrise_window_loc <- df$datetime <= df$two_hr_after_sunrise
+  df$sunset_window_loc <- df$datetime >= df$two_hr_before_sunset
+  sumstats <- df %>%
+    group_by(id, date) %>%
+    summarize(
+      total_loc = n(),
+      am_loc = sum(sunrise_window_loc, na.rm=TRUE),
+      pm_loc = sum(sunset_window_loc, na.rm=TRUE)) %>%
+    mutate(next_date = lead(date, 1),
+      next_day_GPS = (next_date - date),
+      next_am_loc = lead(am_loc, 1)) %>%
+    ungroup()
+    df_sum <- left_join(df, sumstats, by = c("id","date"))
+  roost_arrival_confirmed  <- df_sum %>%
+    filter(last == "Last" &
+        step_length <= overnight_distance_threshold &
+        next_day_GPS == 1 &
+        pm_loc >= 7 &
+        next_am_loc >= 7) %>%
+    dplyr::select(id, date)
+  roost_departure_confirmed <- roost_arrival_confirmed %>%
+    mutate(date = date + 1) # the mornings after "last_roost_confirmed" dates
+  roost_arrival_intervals <- inner_join(df, roost_arrival_confirmed,
+    by = c("date", "id")) %>% filter(datetime > solarnoon)
+    # to "confirm" arrival based on overnight distance
+  roost_departure_intervals <- inner_join(df, roost_departure_confirmed,
+    by = c("date", "id")) %>% filter(datetime < solarnoon)
+  roost_final <- rbind(roost_arrival_intervals, roost_departure_intervals) %>%
+    arrange(id, datetime) %>%
+    dplyr::select(-c(time_before_end, two_hr_after_sunrise,
+      two_hr_before_sunset, sunrise_window_loc, sunset_window_loc))
+}
 
-#' Filter location by individual and dates
+
+#' Filter locations by individual and dates
 #'
 #' Used to filter full dataset to individual(s) within a specified date range.
 #'
@@ -1743,10 +1761,12 @@ IfElseTimedateNA <- function(df = df,
 #' Plots proportion of behavioral states during a day as a bar graph, with
 #'   adjustable number of breaks.
 #'
-#' @usage PlotBehaviorProportionBar(df, breaks)
+#' @usage PlotBehaviorProportionBar(df, breaks, title)
 #'
 #' @param df Dataframe with "sex", "behavior", and "time_proportion" columns.
 #' @param breaks Numeric, number of breaks in daily period.
+#' @param title Character, main title of plot. Default is "Daily Behavior
+#'   Distributions".
 #'
 #' @return Facetted plot of behavior proportion over daily period.
 #' @export
@@ -1754,12 +1774,14 @@ IfElseTimedateNA <- function(df = df,
 #' @details Behavioral colors come from:
 #'   "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv".
 #'
-PlotBehaviorProportionBar<-function(df = df,
-                                    breaks = 20){
+PlotBehaviorProportionBar <- function(df = df,
+                                      breaks = 20,
+                                      title = NA){
+  if(is.na(title)) title <- "Daily Behavior Distributions"
   behavior_colors <- CreateColorsByMetadata(file=
-      "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
   df$behavior <- factor(df$behavior)
-  CutProportion <- function(data,breaks=breaks) {
+  CutProportion <- function(data, breaks = breaks) {
     b <- seq(0, 1, length=2*breaks+1)
     brk <- b[0:breaks*2+1]
     k <- cut(data, breaks=brk)
@@ -1771,23 +1793,37 @@ PlotBehaviorProportionBar<-function(df = df,
     k <- cut(data, breaks=brk)
     mid[k]
   }
+  Capitalize <- function(string) {
+    substr(string, 1, 1) <- toupper(substr(string, 1, 1))
+    string
+  }
+  sex_names <- list('female'="Female", 'male'="Male")
+  sex_labeller <- function(variable, value){
+    return(sex_names[value])
+  }
   df$bins <- CutProportion(df$time_proportion, breaks)
-  df$bins_mid <- factor(CutProportionMid(df$time_proportion,breaks))
-  melted <- melt(ddply(df, .(sex, bins_mid),
+  df$bins_mid <- factor(CutProportionMid(df$time_proportion, breaks))
+  melted <- reshape::melt(plyr::ddply(df, plyr::.(sex, bins_mid),
     function(x){prop.table(table(x$behavior))}))
   names(melted)[names(melted) == 'variable'] <- 'behavior'
   melted$bins_mid <- as.numeric(as.character(melted$bins_mid))
   ggplot(melted, aes(x = bins_mid, y=value, ymax=1, fill= behavior)) +
-    facet_grid(~ sex) + geom_bar(stat="identity") +
-    scale_fill_manual(values = behavior_colors) +
-    scale_x_continuous(breaks=seq(0,1,.1)) +
-    theme(panel.margin = unit(1, "lines")) +
-    theme(plot.title=element_text(size=22)) +
-    theme(text=element_text(size=20, colour="black")) +
+    facet_grid(~ sex, labeller = labeller(sex = Capitalize)) +
+    geom_bar(stat="identity") +
+    scale_fill_manual(values = behavior_colors, name = "Behavior") +
+    scale_x_continuous(breaks=seq(0, 1, .1)) +
+    theme(panel.spacing = unit(1, "lines")) +
+    theme(plot.title=element_text(size=20)) +
+    theme(text=element_text(size=18, colour="black")) +
     theme(axis.text=element_text(colour="black")) +
     labs(x="Daily Period",
-    y="Behavior Proportion",
-    title="Daily Behavior Distributions")
+      y="Behavior Proportion",
+      title=title) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank())  +
+  theme(panel.background = element_rect(fill = "white", color = "black")) +
+  theme(strip.background = element_rect(colour = "black", fill = "white"))
 }
 
 #' Plots daily behavior proportions as lines
@@ -1795,20 +1831,23 @@ PlotBehaviorProportionBar<-function(df = df,
 #' Plots proportion of behavioral states during a day as a line, with
 #'   adjustable number of breaks.
 #'
-#' @usage PlotBehaviorProportionLine(df, breaks)
+#' @usage PlotBehaviorProportionLine(df, breaks, title)
 #'
 #' @param df Dataframe with "sex", "behavior", and "time_proportion" columns.
 #' @param breaks Numeric, number of breaks in daily period.
+#' @param title Character, main title of plot. Default is "Daily Behavior
+#'   Distributions".
 #'
 #' @return Facetted plot of behavior proportion over daily period.
 #' @export
 #'
 PlotBehaviorProportionLine <- function(df = df,
-                                     breaks = 20){
-  df$behavior<-factor(df$behavior)
-  source('C:/Work/R/Functions/gps.R')
+                                       breaks = 20,
+                                       title = NA){
+  if(is.na(title)) title <- "Daily Behavior Distributions"
+  df$behavior <- factor(df$behavior)
   behavior_colors <- CreateColorsByMetadata(file=
-      "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
   CutProportion <- function(data,breaks=breaks) {
     b <- seq(0, 1, length=2*breaks+1)
     brk <- b[0:breaks*2+1]
@@ -1821,21 +1860,31 @@ PlotBehaviorProportionLine <- function(df = df,
     k <- cut(data, breaks=brk)
     mid[k]
   }
+  Capitalize <- function(string) {
+    substr(string, 1, 1) <- toupper(substr(string, 1, 1))
+    string
+  }
   df$bins <- CutProportion(df$time_proportion, breaks)
-  df$bins_mid <- factor(CutProportionMid(df$time_proportion,breaks))
-  melted <- melt(ddply(df, .(sex, bins_mid),
+  df$bins_mid <- factor(CutProportionMid(df$time_proportion, breaks))
+  melted <- reshape::melt(plyr::ddply(df, plyr::.(sex, bins_mid),
     function(x){prop.table(table(x$behavior))}))
   names(melted)[names(melted) == 'variable'] <- 'behavior'
   melted$bins_mid <- as.numeric(as.character(melted$bins_mid))
   ggplot(melted, aes(x = bins_mid, y=value, ymax=1, group= behavior, color=
-    behavior)) +  facet_grid(~ sex) + theme(panel.margin=unit(1, "lines")) +
-    scale_color_manual(values=behavior_colors)+
-    geom_line(stat="identity", size=1.5) +
-    scale_x_continuous(breaks=seq(0,1,.1)) +
-    theme(plot.title=element_text(size=22)) +
-    theme(text=element_text(size=20, colour="black")) +
+    behavior)) + geom_line(stat="identity", size=1.5) +
+    facet_grid(~ sex, labeller = labeller(sex = Capitalize)) +
+    theme(panel.spacing=unit(1, "lines")) +
+    scale_color_manual(values=behavior_colors) +
+    scale_x_continuous(breaks=seq(0,1, .1)) +
+    theme(plot.title=element_text(size=20)) +
+    theme(text=element_text(size=18, colour="black")) +
     theme(axis.text=element_text(colour="black")) + labs(x="Daily Period",
-    y="Behavior Proportion", title="Daily Behavior Distributions")
+    y="Behavior Proportion", title=title) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank())  +
+  theme(panel.background = element_rect(fill = "white", color = "black")) +
+  theme(strip.background = element_rect(colour = "black", fill = "white"))
 }
 
 #' Plot step lengths histogram

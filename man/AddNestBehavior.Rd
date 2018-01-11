@@ -4,16 +4,16 @@
 \alias{AddNestBehavior}
 \title{Adds nest behavior to baea dataframe}
 \usage{
-AddNestBehavior(df = df, distance_to_nest = 50)
+AddNestBehavior(df = df, distance_threshold = 50)
 }
 \arguments{
 \item{df}{dataframe}
 
-\item{distance_to_nest}{distance (in meters) from location to nest to assign
+\item{distance_threshold}{distance (in meters) from location to nest to assign
 a location as "nest" behavior}
 }
 \value{
-dataframe with behavior column that has "nest"
+dataframe with 'bh_nest' column that has "nest"
 }
 \description{
 Finds nest attendance behavior that meet given threshold parameters

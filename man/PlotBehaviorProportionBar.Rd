@@ -4,12 +4,15 @@
 \alias{PlotBehaviorProportionBar}
 \title{Plots daily behavior proportions as bars}
 \usage{
-PlotBehaviorProportionBar(df, breaks)
+PlotBehaviorProportionBar(df, breaks, title)
 }
 \arguments{
 \item{df}{Dataframe with "sex", "behavior", and "time_proportion" columns.}
 
 \item{breaks}{Numeric, number of breaks in daily period.}
+
+\item{title}{Character, main title of plot. Default is "Daily Behavior
+Distributions".}
 }
 \value{
 Facetted plot of behavior proportion over daily period.

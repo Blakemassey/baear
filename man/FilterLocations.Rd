@@ -2,7 +2,7 @@
 % Please edit documentation in R/behavior.R
 \name{FilterLocations}
 \alias{FilterLocations}
-\title{Filter location by individual and dates}
+\title{Filter locations by individual and dates}
 \usage{
 FilterLocations(df = df, id = "id", individual = NULL, start = NULL,
   end = NULL, behavior = NULL)

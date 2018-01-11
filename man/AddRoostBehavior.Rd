@@ -4,32 +4,24 @@
 \alias{AddRoostBehavior}
 \title{Adds roost behavior to dataframe}
 \usage{
-AddRoostBehavior(df, overnight_distance_threshold,
-  at_roost_distance_threshold, daily_location_threshold)
+AddRoostBehavior(df, at_roost_distance_threshold, depart_timediff_max,
+  arrive_timediff_max)
 }
 \arguments{
 \item{df}{dataframe}
 
-\item{default_tz}{used in IfElseTimedateNA/Compare functions}
-
-\item{tz}{timezone, default is "Etc/GMT+5"}
-
-\item{overnight_distance_threshold}{max overnight distance}
-
-\item{at_roost_distance_threshold}{max distance away from roost}
+\item{at_roost_distance_threshold}{numeric max distance away from roost}
 
 \item{depart_timediff_max}{max diff between start of day and depart}
 
 \item{arrive_timediff_max}{max diff between end of day and arrival}
 }
 \value{
-dataframe with roost column that has arrive, depart, and roost
+dataframe with 'bh_roost' column that has arrive, depart, and roost
 }
 \description{
 Finds roost arrivals and departures that meet given threshold parameters
 }
 \details{
-automatically makes sure that data exists for the following day,
-  automatically checks that there are at least 7 locations in the first/last
-  two hours of the day for departure/arrive
+Adds 'bh_roost' column
 }
