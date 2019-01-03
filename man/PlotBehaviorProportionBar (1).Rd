@@ -23,5 +23,5 @@ Plots proportion of behavioral states during a day as a bar graph, with
 }
 \details{
 Behavioral colors come from:
-  "Data/Assets/behavior_colors.csv".
+  "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv".
 }

@@ -458,13 +458,13 @@ AddRoostBehavior <- function(df,
                              at_roost_distance_threshold = 50,
                              depart_timediff_max = 1000,
                              arrive_timediff_max = 1000){
-
   df <- df
   df_departure <- df %>% filter(datetime < solarnoon)
   df_arrival <- df %>% filter(datetime > solarnoon)
   depart <- df_departure %>%
     group_by(date, id) %>%
-    mutate(away_from_roost = if_else(dist_first > at_roost_distance_threshold,
+    mutate(away_from_roost =
+        if_else(dist_first > at_roost_distance_threshold | bh_nest == "Nest",
       1, 0)) %>%
     mutate(depart_roost = away_from_roost == 1 &
       !duplicated(away_from_roost == 1)) %>%
@@ -480,7 +480,9 @@ AddRoostBehavior <- function(df,
   arrive <- df_arrival %>%
     group_by(date, id) %>%
     arrange(desc(datetime)) %>%
-    mutate(away_from_roost = if_else(dist_last > 50, 1, 0)) %>%
+    mutate(away_from_roost =
+        if_else(dist_last > at_roost_distance_threshold | bh_nest == "Nest",
+      1, 0)) %>%
     mutate(arrive_roost = away_from_roost == 1 &
       !duplicated(away_from_roost == 1)) %>%
     mutate(lead_arrive = lead(arrive_roost, 1)) %>%
@@ -917,11 +919,11 @@ CreateColorsByAny <- function (by,
   if (!is.null(by)){
   if (by == "behavior" || by == "id" || by == "sex") {
     if (by == "behavior") by_colors <- CreateColorsByMetadata(file=
-      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Assets/behavior_colors.csv", metadata_id="behavior")
     if (by == "id") by_colors <- CreateColorsByMetadata(file=
       "Data/GPS/GPS_Deployments.csv", metadata_id="deploy_location")
     if (by == "sex") by_colors <- CreateColorsByMetadata(file=
-      "Data/Models/Behavior_Colors.csv", metadata_id="sex")
+      "Data/Assets/behavior_colors.csv", metadata_id="sex")
   } else {
     by_colors <- CreateColorsByVar(df=df, by=by, pal=pal, r_pal = r_pal, b_pal =
       b_pal)
@@ -1772,14 +1774,14 @@ IfElseTimedateNA <- function(df = df,
 #' @export
 #'
 #' @details Behavioral colors come from:
-#'   "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv".
+#'   "Data/Assets/behavior_colors.csv".
 #'
 PlotBehaviorProportionBar <- function(df = df,
                                       breaks = 20,
                                       title = NA){
   if(is.na(title)) title <- "Daily Behavior Distributions"
   behavior_colors <- CreateColorsByMetadata(file=
-      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Assets/behavior_colors.csv", metadata_id="behavior")
   df$behavior <- factor(df$behavior)
   CutProportion <- function(data, breaks = breaks) {
     b <- seq(0, 1, length=2*breaks+1)
@@ -1847,7 +1849,7 @@ PlotBehaviorProportionLine <- function(df = df,
   if(is.na(title)) title <- "Daily Behavior Distributions"
   df$behavior <- factor(df$behavior)
   behavior_colors <- CreateColorsByMetadata(file=
-      "Data/Models/Behavior_Colors.csv", metadata_id="behavior")
+      "Data/Assets/behavior_colors.csv", metadata_id="behavior")
   CutProportion <- function(data,breaks=breaks) {
     b <- seq(0, 1, length=2*breaks+1)
     brk <- b[0:breaks*2+1]
