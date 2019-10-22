@@ -2287,39 +2287,75 @@ PlotWeibullPDF <- function(shape = 1,
 #' Summarizes a 'fitdist' object (from 'fitdistrplus' package), made to be used
 #'   as a table (e.g. xtable)
 #'
-#' @usage SummarizeFistdist(fits)
-#'
+#' @usage SummarizeFistDist(fits)
 #' @param fits 'fitdist' object.
-#'
-#' @return Dataframe
+#' @param orientation numeric, 1 = 'rowwise' or 2 = 'colwise', method for how
+#'     distributions' information is arranged
+#' @return tibble
 #' @export
 #'
-SummarizeFitdist <- function(fits) {
+SummarizeFitDist <- function(fits, orientation = 1) {
   fits <- fits
-  df <- as.data.frame(cbind(c("parameter", "estimate", "sd", "loglik",
-    "aic", "bic", "method", "ddistname", "pdistname", "qdistname")))
-  colnames(df)[1] <- NA
-  for (i in 1:length(fits)){
-    start_col <- length(df) + 1
-    n_pars <- length(fits[[i]]$estimate)
-    for (j in 1:n_pars) df <- cbind(df, NA)
-    colnames(df)[start_col] <- names(fits[i])
-    for (k in 1:n_pars) {
-      df[1, start_col + k - 1] <- names(fits[[i]]$estimate)[k]
-      df[2, start_col + k - 1] <- signif(fits[[i]]$estimate[k], 4)
-      df[3, start_col + k - 1] <- signif(fits[[i]]$sd[k], 4)
+  if(orientation == 1){
+    df <- dplyr::tibble(
+      Distribution = character(),
+      Parameter = character(),
+      Estimate = numeric(),
+      SD = numeric(),
+      LogLik = numeric(),
+      AIC = numeric(),
+      BIC = numeric(),
+      Method = character(),
+      Ddistname = character(),
+      Pdistname = character(),
+      Qdistname = character())
+    for (i in 1:length(fits)){
+      start_row <- nrow(df) + 1
+      n_pars <- length(fits[[i]]$estimate)
+      for (j in 1:n_pars) df <- dplyr::add_row(df)
+      df[start_row, "Distribution"] <- stringr::str_to_title(names(fits[i]))
+      for (k in 1:n_pars) {
+        df[start_row + k - 1, 2] <-
+          stringr::str_to_title(names(fits[[i]]$estimate)[k])
+        df[start_row + k - 1, 3] <- signif(fits[[i]]$estimate[k], 4)
+        df[start_row + k - 1, 4] <- signif(fits[[i]]$sd[k], 4)
+      }
+      df[start_row, 5] <- as.numeric(format(fits[[i]]$loglik, nsmall=2))
+      df[start_row, 6] <- as.numeric(format(fits[[i]]$aic, nsmall=2))
+      df[start_row, 7] <- as.numeric(format(fits[[i]]$bic, nsmall=2))
+      df[start_row, 8] <- fits[[i]]$method
+      df[start_row, 9] <- paste0("d", fits[[i]]$distname)
+      df[start_row, 10] <- paste0("p", fits[[i]]$distname)
+      df[start_row, 11] <- paste0("q", fits[[i]]$distname)
     }
-    df[4, start_col] <- format(fits[[i]]$loglik, nsmall=2)
-    df[5, start_col] <- format(fits[[i]]$aic, nsmall=2)
-    df[6, start_col] <- format(fits[[i]]$bic, nsmall=2)
-    df[7, start_col] <- fits[[i]]$method
-    df[8, start_col] <- paste0("d", fits[[i]]$distname)
-    df[9, start_col] <- paste0("p", fits[[i]]$distname)
-    df[10, start_col] <- paste0("q", fits[[i]]$distname)
   }
-  colnames(df)[1] <- ""
-  colnames(df)[which(names(df) == "NA")] <- ""
-  return(df)
+  if(orientation == 2){
+    df <- as.data.frame(cbind(c("Parameter", "Estimate", "SD", "LogLik",
+      "AIC", "BIC", "Method", "Ddistname", "Pdistname", "Qdistname")))
+    colnames(df)[1] <- NA
+    for (i in 1:length(fits)){
+      start_col <- length(df) + 1
+      n_pars <- length(fits[[i]]$estimate)
+      for (j in 1:n_pars) df <- cbind(df, NA)
+      colnames(df)[start_col] <- names(fits[i])
+      for (k in 1:n_pars) {
+        df[1, start_col + k - 1] <- names(fits[[i]]$estimate)[k]
+        df[2, start_col + k - 1] <- signif(fits[[i]]$estimate[k], 4)
+        df[3, start_col + k - 1] <- signif(fits[[i]]$sd[k], 4)
+      }
+      df[4, start_col] <- format(fits[[i]]$loglik, nsmall=2)
+      df[5, start_col] <- format(fits[[i]]$aic, nsmall=2)
+      df[6, start_col] <- format(fits[[i]]$bic, nsmall=2)
+      df[7, start_col] <- fits[[i]]$method
+      df[8, start_col] <- paste0("d", fits[[i]]$distname)
+      df[9, start_col] <- paste0("p", fits[[i]]$distname)
+      df[10, start_col] <- paste0("q", fits[[i]]$distname)
+    }
+    colnames(df)[1] <- ""
+    colnames(df)[which(names(df) == "NA")] <- ""
+  }
+  tbl <- as_tibble(df)
+  return(tbl)
 }
 
 

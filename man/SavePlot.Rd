@@ -27,8 +27,7 @@ Saves a file of the last displayed plot.
 \description{
 A function for saving the last displayed plot as a png, jpeg, or pdf.
 }
-\examples{
+\details{
 Default output format width and height are set for PowerPoint
   presentations
-
 }

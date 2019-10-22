@@ -4,7 +4,8 @@
 \alias{PlotCauchyPDF}
 \title{Plot Cauchy probability density function}
 \usage{
-PlotCauchyPDF(location = 5, scale = 5, xlim = NULL, color = "darkgreen")
+PlotCauchyPDF(location = 5, scale = 5, xlim = NULL,
+  color = "darkgreen")
 }
 \arguments{
 \item{location}{Numeric, location. Default is 5.}

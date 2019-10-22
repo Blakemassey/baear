@@ -181,7 +181,7 @@ SaveGGPlot <- function (filename,
 #' @return Saves a file of the last displayed plot.
 #' @export
 #'
-#' @examples Default output format width and height are set for PowerPoint
+#' @details Default output format width and height are set for PowerPoint
 #'   presentations
 #'
 SavePlot <- function (filename,
