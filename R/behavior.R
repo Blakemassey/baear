@@ -1012,13 +1012,11 @@ CreateConDistRasters <- function(baea,
         x, 0)})
       con_nest <- raster::overlay(home_dist, con_dist_zero,
         fun = function(x,y){round(x+y)})
-      if (write_con_nest_all == TRUE) {
-        filename <- file.path(output_dir, j, paste0("ConNest_", i,
-          ".tif"))
-        raster::writeRaster(con_dist, filename = filename,
-          format = "GTiff", overwrite = TRUE)
-        writeLines(noquote(paste("Writing:", filename)))
-      }
+      filename <- file.path(output_dir, j, paste0("ConNest_", i,
+        ".tif"))
+      raster::writeRaster(con_dist, filename = filename, format = "GTiff",
+        overwrite = TRUE)
+      writeLines(noquote(paste("Writing:", filename)))
     }
   }
   raster_files <- list.files("Output/Analysis/Territorial",
@@ -1032,7 +1030,6 @@ CreateConDistRasters <- function(baea,
   writeLines(noquote(paste("Writing:", filename)))
   return(con_nest_all)
 }
-
 
 #' Create homerange kernels for the BAEA nests
 #'
