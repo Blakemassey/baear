@@ -25,7 +25,7 @@ df_home centroid}
 Default is TRUE}
 }
 \value{
-baea
+RasterLayer
 }
 \description{
 Creates conspecific and nest distance raster for each baea in data

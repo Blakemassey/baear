@@ -947,7 +947,7 @@ CreateColorsByAny <- function (by,
 #' @param write_con_nest_all logical, write con_nest_all raster to file.
 #'   Default is TRUE
 #'
-#' @return baea
+#' @return RasterLayer
 #'
 #' @importFrom magrittr "%>%"
 #' @export
