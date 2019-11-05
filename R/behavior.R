@@ -959,7 +959,7 @@ CreateConDistRasters <- function(baea,
                                  base = base,
                                  output_dir = "Output/Analysis/Territorial",
                                  max_r = 3000,
-                                 write_con_dist = TRUE){
+                                 write_con_nest_all = TRUE){
   if (!dir.exists(output_dir)) dir.create(output_dir)
   for (k in sort(unique(baea$year))) dir.create(file.path(output_dir, k),
     showWarnings = FALSE)
@@ -1011,7 +1011,7 @@ CreateConDistRasters <- function(baea,
         x, 0)})
       con_nest <- raster::overlay(home_dist, con_dist_zero,
         fun = function(x,y){round(x+y)})
-      if (write_con_nest == TRUE) {
+      if (write_con_nest_all == TRUE) {
         filename <- file.path(output_dir, j, paste0("ConNest_", i,
           ".tif"))
         raster::writeRaster(con_dist, filename = filename,
