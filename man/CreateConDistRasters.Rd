@@ -6,7 +6,7 @@
 \usage{
 CreateConDistRasters(baea, nest_set, base = base,
   output_dir = "Output/Analysis/Territorial", max_r = 3000,
-  write_con_dist = TRUE)
+  write_con_nest_all = TRUE)
 }
 \arguments{
 \item{baea}{dataframe of baea locations}
