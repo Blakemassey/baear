@@ -10,7 +10,7 @@ SummarizeFistDist(fits)
 \item{fits}{'fitdist' object.}
 
 \item{orientation}{numeric, 1 = 'rowwise' or 2 = 'colwise', method for how
-distributions' information are arranged}
+distributions' information is arranged}
 }
 \value{
 tibble

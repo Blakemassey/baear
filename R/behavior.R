@@ -67,7 +67,6 @@ AddFlightBehavior <- function(df,
 
 
 
-
 #' Adds home and conspecific edge distances to 'baea' dataframe
 #'
 #' Creates Raster Layers of homerange kernels based on home centroids
@@ -935,6 +934,102 @@ CreateColorsByAny <- function (by,
   if (plot == TRUE) PlotColorPie(by_colors)
   if (output == TRUE) return(by_colors)
 }
+
+#' Creates conspecific and nest distance raster for each baea in data
+#'
+#' @param baea dataframe of baea locations
+#' @param nest_set dataframe of nests
+#' @param base base Raster that sets the projection, extent, and dimensions of
+#'   the study area
+#' @param output_dir directory for output files (distance, homerange)
+#' @param max_r maximum radius to calculate the homerange raster from each
+#'   df_home centroid
+#' @param write_con_nest_all logical, write con_nest_all raster to file.
+#'   Default is TRUE
+#'
+#' @return baea
+#'
+#' @importFrom magrittr "%>%"
+#' @export
+#'
+#' @details Creates folders for every year in output directory
+#'
+CreateConDistRasters <- function(baea,
+                                 nest_set,
+                                 base = base,
+                                 output_dir = "Output/Analysis/Territorial",
+                                 max_r = 3000,
+                                 write_con_dist = TRUE){
+  if (!dir.exists(output_dir)) dir.create(output_dir)
+  for (k in sort(unique(baea$year))) dir.create(file.path(output_dir, k),
+    showWarnings = FALSE)
+  cellsize <- raster::res(base)[1]
+  max_r_cells <- ceiling(max_r/cellsize)
+  xmin <- xmin(base)
+  ymin <- ymin(base)
+  for (i in 1:nrow(nest_set)){
+    nest_set[i, "x"] <- CenterXYInCell(nest_set[i, "long_utm"],
+      nest_set[i, "lat_utm"], xmin, ymin, cellsize)[1]
+    nest_set[i, "y"] <- CenterXYInCell(nest_set[i, "long_utm"],
+      nest_set[i, "lat_utm"], xmin, ymin, cellsize)[2]
+  }
+  nest_set_sf <- st_as_sf(x = nest_set, coords = c("x", "y"), crs = 32619)
+  for (i in unique(baea$id)) {
+    baea_i <- baea %>% dplyr::filter(id == i)
+    for (j in sort(unique(baea_i$year))){
+      baea_k <- baea %>% dplyr::filter(year == j)
+      nest_k_xy <- baea_k %>% dplyr::slice(1) %>% dplyr::select(nest_long_utm,
+        nest_lat_utm) %>% as.vector()
+      nest_k_id <- baea_k %>% dplyr::slice(1) %>% dplyr::select(nest_site) %>%
+        dplyr::pull()
+      home_k_x <- CenterXYInCell(nest_k_xy[1], nest_k_xy[2], xmin, ymin,
+        cellsize)[[1]] # home nest long
+      home_k_y <- CenterXYInCell(nest_k_xy[1], nest_k_xy[2], xmin, ymin,
+        cellsize)[[2]] # home nest lat
+      home_k_xy <- tibble::tibble(x = home_k_x, y = home_k_y)
+      home_k_sf <- sf::st_as_sf(x = home_k_xy, coords = c("x", "y"), crs =32619)
+      cell_extent <- raster::extent(home_k_x - (cellsize/2),
+        home_k_x + (cellsize/2), home_k_y - (cellsize/2),
+        home_k_y + (cellsize/2))
+      cell <- raster::setValues(raster(cell_extent, crs = projection(base),
+        res = cellsize), j)
+      home_ext <- raster::extend(cell, c(max_r_cells, max_r_cells), value = NA)
+      summary(home_ext)
+      home_dist <- raster::distance(home_ext)
+      filter_quo <- paste0("active_", j, " == TRUE")
+      nest_set_sf_j <- nest_set_sf %>%
+        seplyr::filter_se(filter_quo) %>%
+        dplyr::filter(nest_site != nest_k_id) # conspecific nests
+      nests_k <- sf::st_contains(st_as_sfc(bb(home_dist)), nest_set_sf_j)
+      nest_set_sf_k <- nest_set_sf_j %>% dplyr::slice(unlist(nests_k))
+      con_dist <- raster::distanceFromPoints(home_ext,
+        st_coordinates(nest_set_sf_k)) # raster of nests
+      # Nearest neighbor nest distance at home nest
+      home_con_dist <- raster::extract(con_dist, home_k_xy)
+      con_dist_home <- raster::calc(con_dist, function(x){home_con_dist - x})
+      con_dist_zero <- raster::calc(con_dist_home, function(x){if_else(x >= 0,
+        x, 0)})
+      con_nest <- raster::overlay(home_dist, con_dist_zero,
+        fun = function(x,y){round(x+y)})
+      if (write_con_nest == TRUE) {
+        filename <- file.path(output_dir, j, paste0("ConNest_", i,
+          ".tif"))
+        raster::writeRaster(con_dist, filename = filename,
+          format = "GTiff", overwrite = TRUE)
+        writeLines(noquote(paste("Writing:", filename)))
+      }
+    }
+  }
+  raster_files <- list.files("Output/Analysis/Territorial",
+    pattern = "^ConNest_+.+tif$", full.names = TRUE, recursive = TRUE)
+  con_nest <- list()
+  for(i in 1:length(raster_files)){con_nest[[i]] <- raster(raster_files[i])}
+  con_nest_all <- do.call(merge, con_nest)
+  writeRaster(con_nest_all, filename = file.path("Output/Analysis",
+    "Territorial", "ConNest_All.tif"), format = "GTiff", overwrite = TRUE)
+  return(con_nest_all)
+}
+
 
 #' Create homerange kernels for the BAEA nests
 #'
