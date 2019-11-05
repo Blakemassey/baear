@@ -1000,10 +1000,11 @@ CreateConDistRasters <- function(baea,
       nest_set_sf_j <- nest_set_sf %>%
         seplyr::filter_se(filter_quo) %>%
         dplyr::filter(nest_site != nest_k_id) # conspecific nests
-      nests_k <- sf::st_contains(sf::st_as_sfc(bb(home_dist)), nest_set_sf_j)
+      nests_k <- sf::st_contains(sf::st_as_sfc(tmaptools::bb(home_dist)),
+        nest_set_sf_j)
       nest_set_sf_k <- nest_set_sf_j %>% dplyr::slice(unlist(nests_k))
       con_dist <- raster::distanceFromPoints(home_ext,
-        st_coordinates(nest_set_sf_k)) # raster of nests
+        sf::st_coordinates(nest_set_sf_k)) # raster of nests
       # Nearest neighbor nest distance at home nest
       home_con_dist <- raster::extract(con_dist, home_k_xy)
       con_dist_home <- raster::calc(con_dist, function(x){home_con_dist - x})
@@ -1024,9 +1025,11 @@ CreateConDistRasters <- function(baea,
     pattern = "^ConNest_+.+tif$", full.names = TRUE, recursive = TRUE)
   con_nest <- list()
   for(i in 1:length(raster_files)){con_nest[[i]] <- raster(raster_files[i])}
-  con_nest_all <- do.call(merge, con_nest)
-  writeRaster(con_nest_all, filename = file.path("Output/Analysis",
-    "Territorial", "ConNest_All.tif"), format = "GTiff", overwrite = TRUE)
+  con_nest_all <- do.call(raster::merge, con_nest)
+  filename <- "Output/Analysis/Territorial/ConNest_All.tif"
+  raster::writeRaster(con_nest_all, filename = filename, format = "GTiff",
+    overwrite = TRUE)
+  writeLines(noquote(paste("Writing:", filename)))
   return(con_nest_all)
 }
 

@@ -30,6 +30,7 @@ Imports:
   sp, 
   stats,
   stringr,
+  tmaptools,
   tools,
   tidyr
 RoxygenNote: 6.1.1
