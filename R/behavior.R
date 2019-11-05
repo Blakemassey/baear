@@ -1000,7 +1000,7 @@ CreateConDistRasters <- function(baea,
       nest_set_sf_j <- nest_set_sf %>%
         seplyr::filter_se(filter_quo) %>%
         dplyr::filter(nest_site != nest_k_id) # conspecific nests
-      nests_k <- sf::st_contains(st::st_as_sfc(bb(home_dist)), nest_set_sf_j)
+      nests_k <- sf::st_contains(sf::st_as_sfc(bb(home_dist)), nest_set_sf_j)
       nest_set_sf_k <- nest_set_sf_j %>% dplyr::slice(unlist(nests_k))
       con_dist <- raster::distanceFromPoints(home_ext,
         st_coordinates(nest_set_sf_k)) # raster of nests
