@@ -954,15 +954,16 @@ CreateColorsByAny <- function (by,
 #'
 #' @details Creates folders for every year in output directory
 #'
-CreateConDistRasters <- function(baea,
-                                 nest_set,
-                                 base = base,
-                                 output_dir = "Output/Analysis/Territorial",
-                                 max_r = 3000,
-                                 write_con_nest_all = TRUE){
+CreateConNestDistRasters <- function(baea,
+                                     nest_set,
+                                     base = base,
+                                     output_dir = "Output/Analysis/Territorial",
+                                     max_r = 3000,
+                                     write_con_nest_all = TRUE){
   if (!dir.exists(output_dir)) dir.create(output_dir)
   for (k in sort(unique(baea$year))) dir.create(file.path(output_dir, k),
     showWarnings = FALSE)
+  raster_files <- vector()
   cellsize <- raster::res(base)[1]
   max_r_cells <- ceiling(max_r/cellsize)
   xmin <- xmin(base)
@@ -974,7 +975,7 @@ CreateConDistRasters <- function(baea,
       nest_set[i, "lat_utm"], xmin, ymin, cellsize)[2]
   }
   nest_set_sf <- sf::st_as_sf(x = nest_set, coords = c("x", "y"), crs = 32619)
-  for (i in unique(baea$id)) {
+  for (i in unique(baea$id)){
     baea_i <- baea %>% dplyr::filter(id == i)
     for (j in sort(unique(baea_i$year))){
       baea_k <- baea_i %>% dplyr::filter(year == j)
@@ -1010,23 +1011,23 @@ CreateConDistRasters <- function(baea,
       con_dist_home <- raster::calc(con_dist, function(x){home_con_dist - x})
       con_dist_zero <- raster::calc(con_dist_home, function(x){if_else(x >= 0,
         x, 0)})
-      con_nest_i <- raster::overlay(home_dist, con_dist_home,
+      con_nest_k <- raster::overlay(home_dist, con_dist_home,
         fun = function(x,y){round(x+y)})
-      filename <- file.path(output_dir, j, paste0("ConNest_", i,
-        ".tif"))
-      raster::writeRaster(con_nest_i, filename = filename, format = "GTiff",
+      filename_k <- file.path(output_dir, j, paste0("ConNest_", i, ".tif"))
+      raster::writeRaster(con_nest_k, filename = filename_k, format = "GTiff",
         overwrite = TRUE)
-      writeLines(noquote(paste("Writing:", filename)))
+      writeLines(noquote(paste("Writing:", filename_k)))
+      raster_files <- append(raster_files, filename_k)
     }
   }
-  raster_files <- list.files("Output/Analysis/Territorial",
-    pattern = "^ConNest_+.+tif$", full.names = TRUE, recursive = TRUE)
   con_nest <- list()
   for(i in 1:length(raster_files)){con_nest[[i]] <- raster(raster_files[i])}
   con_nest_all <- do.call(raster::merge, con_nest)
   filename <- "Output/Analysis/Territorial/ConNest_All.tif"
-  raster::writeRaster(con_nest_all, filename = filename, format = "GTiff",
-    overwrite = TRUE)
+  if(isTRUE(write_con_nest_all)){
+    raster::writeRaster(con_nest_all, filename = filename, format = "GTiff",
+      overwrite = TRUE)
+  }
   writeLines(noquote(paste("Writing:", filename)))
   return(con_nest_all)
 }
