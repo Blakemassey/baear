@@ -977,7 +977,7 @@ CreateConDistRasters <- function(baea,
   for (i in unique(baea$id)) {
     baea_i <- baea %>% dplyr::filter(id == i)
     for (j in sort(unique(baea_i$year))){
-      baea_k <- baea %>% dplyr::filter(year == j)
+      baea_k <- baea_i %>% dplyr::filter(year == j)
       nest_k_xy <- baea_k %>% dplyr::slice(1) %>% dplyr::select(nest_long_utm,
         nest_lat_utm) %>% as.vector()
       nest_k_id <- baea_k %>% dplyr::slice(1) %>% dplyr::select(nest_site) %>%
@@ -1010,11 +1010,11 @@ CreateConDistRasters <- function(baea,
       con_dist_home <- raster::calc(con_dist, function(x){home_con_dist - x})
       con_dist_zero <- raster::calc(con_dist_home, function(x){if_else(x >= 0,
         x, 0)})
-      con_nest <- raster::overlay(home_dist, con_dist_zero,
+      con_nest_i <- raster::overlay(home_dist, con_dist_home,
         fun = function(x,y){round(x+y)})
       filename <- file.path(output_dir, j, paste0("ConNest_", i,
         ".tif"))
-      raster::writeRaster(con_dist, filename = filename, format = "GTiff",
+      raster::writeRaster(con_nest_i, filename = filename, format = "GTiff",
         overwrite = TRUE)
       writeLines(noquote(paste("Writing:", filename)))
     }
