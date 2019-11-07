@@ -958,7 +958,7 @@ CreateConNestDistRasters <- function(baea,
                                      nest_set,
                                      base = base,
                                      output_dir = "Output/Analysis/Territorial",
-                                     max_r = 3000,
+                                     max_r = 30000,
                                      write_con_nest_all = TRUE){
   if (!dir.exists(output_dir)) dir.create(output_dir)
   for (k in sort(unique(baea$year))) dir.create(file.path(output_dir, k),
@@ -988,7 +988,7 @@ CreateConNestDistRasters <- function(baea,
       home_k_y <- CenterXYInCell(nest_k_xy[1], nest_k_xy[2], xmin, ymin,
         cellsize)[[2]] # home nest lat
       home_k_xy <- tibble::tibble(x = home_k_x, y = home_k_y)
-      home_k_sf <- sf::st_as_sf(x = home_k_xy, coords = c("x", "y"), crs =32619)
+      home_k_sf <- sf::st_as_sf(x = home_k_xy, coords = c("x", "y"), crs=32619)
       cell_extent <- raster::extent(home_k_x - (cellsize/2),
         home_k_x + (cellsize/2), home_k_y - (cellsize/2),
         home_k_y + (cellsize/2))
@@ -997,12 +997,13 @@ CreateConNestDistRasters <- function(baea,
       home_ext <- raster::extend(cell, c(max_r_cells, max_r_cells), value = NA)
       summary(home_ext)
       home_dist <- raster::distance(home_ext)
+      home_dist[home_dist > max_r] <- NA
       filter_quo <- paste0("active_", j, " == TRUE")
       nest_set_sf_j <- nest_set_sf %>%
         seplyr::filter_se(filter_quo) %>%
         dplyr::filter(nest_site != nest_k_id) # conspecific nests
-      nests_k <- sf::st_contains(sf::st_as_sfc(tmaptools::bb(home_dist)),
-        nest_set_sf_j)
+      home_k_buff <- sf::st_buffer(home_k_sf, max_r)
+      nests_k <- sf::st_contains(home_k_buff, nest_set_sf_j)
       nest_set_sf_k <- nest_set_sf_j %>% dplyr::slice(unlist(nests_k))
       con_dist <- raster::distanceFromPoints(home_ext,
         sf::st_coordinates(nest_set_sf_k)) # raster of nests
@@ -1010,9 +1011,9 @@ CreateConNestDistRasters <- function(baea,
       home_con_dist <- raster::extract(con_dist, home_k_xy)
       con_dist_home <- raster::calc(con_dist, function(x){home_con_dist - x})
       con_dist_zero <- raster::calc(con_dist_home, function(x){if_else(x >= 0,
-        x, 0)})
+        x, 0)}) # created to compare to con_dist_home, but not used)
       con_nest_k <- raster::overlay(home_dist, con_dist_home,
-        fun = function(x,y){round(x+y)})
+        fun = function(x,y){round(x + y)})
       filename_k <- file.path(output_dir, j, paste0("ConNest_", i, ".tif"))
       raster::writeRaster(con_nest_k, filename = filename_k, format = "GTiff",
         overwrite = TRUE)
