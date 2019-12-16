@@ -1630,7 +1630,7 @@ ExtractTransitionProbabilities <- function(x,
             states <- m$Par$states
         } else {
             cat("Decoding state sequence... ")
-            states <- viterbi(m)
+            states <- momentuHMM:::viterbi(m)
             cat("DONE\n")
         }
     } else {
