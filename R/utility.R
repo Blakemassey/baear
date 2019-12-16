@@ -1,3 +1,17 @@
+#' Calculate mode
+#'
+#' Calculate the mode from a vector
+#'
+#' @param x vector
+#'
+#' @return the mode value
+#' @export
+#'
+CalculateMode <- function(x) {
+  uniqx <- unique(x)
+  uniqx[which.max(tabulate(match(x, uniqx)))]
+}
+
 #' Plots selected color palettes
 #'
 #' Plots selected color palettes (e.g. R_pal, SAGA_pal) with indexes and names

@@ -5,7 +5,7 @@
 \title{Creates conspecific and nest distance raster for each baea in data}
 \usage{
 CreateConNestDistRasters(baea, nest_set, base = base,
-  output_dir = "Output/Analysis/Territorial", max_r = 3000,
+  output_dir = "Output/Analysis/Territorial", max_r = 30000,
   write_con_nest_all = TRUE)
 }
 \arguments{
