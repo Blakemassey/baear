@@ -4,8 +4,13 @@
 \alias{PlotParetoPDF}
 \title{Plot Pareto probability density function}
 \usage{
-PlotParetoPDF(location = 1, scale = 1, shape = 1, xlim = NULL,
-  color = "darkgreen")
+PlotParetoPDF(
+  location = 1,
+  scale = 1,
+  shape = 1,
+  xlim = NULL,
+  color = "darkgreen"
+)
 }
 \arguments{
 \item{location}{Numeric, location parameter, default is 1}

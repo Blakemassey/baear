@@ -11,6 +11,9 @@ ExtractTransitionProbabilities(x, alpha = 0.95)
 
 \item{alpha}{= p-value for CI}
 }
+\value{
+a tibble
+}
 \description{
 Extract 'momentuHMM' transition matrix probabilities
 }

@@ -9,6 +9,9 @@ CalculateMode(x)
 \arguments{
 \item{x}{vector}
 }
+\value{
+the mode value
+}
 \description{
 Calculate the mode from a vector
 }

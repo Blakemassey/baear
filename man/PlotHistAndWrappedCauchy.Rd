@@ -4,9 +4,17 @@
 \alias{PlotHistAndWrappedCauchy}
 \title{Plots a histogram with a wrapped Cauchy distribution}
 \usage{
-PlotHistAndWrappedCauchy(df, var, by = NULL, pars = NULL,
-  bin_width = NULL, fit_wrapped_cauchy = TRUE, fit_color = "black",
-  x_lab = NULL, title = NULL)
+PlotHistAndWrappedCauchy(
+  df,
+  var,
+  by = NULL,
+  pars = NULL,
+  bin_width = NULL,
+  fit_wrapped_cauchy = TRUE,
+  fit_color = "black",
+  x_lab = NULL,
+  title = NULL
+)
 }
 \arguments{
 \item{df}{Dataframe of data}

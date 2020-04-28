@@ -4,10 +4,20 @@
 \alias{CreateHomeRangeKernelsParetoGamma}
 \title{Create home range kernels based on Pareto and Gamma functions}
 \usage{
-CreateHomeRangeKernelsParetoGamma(df_all, df_home = df_all,
-  base = base, max_r, pareto_shape, pareto_scale, gamma_shape,
-  gamma_scale, id = "nest_id", output_dir = getwd(),
-  write_distance = TRUE, write_homerange = TRUE)
+CreateHomeRangeKernelsParetoGamma(
+  df_all,
+  df_home = df_all,
+  base = base,
+  max_r,
+  pareto_shape,
+  pareto_scale,
+  gamma_shape,
+  gamma_scale,
+  id = "nest_id",
+  output_dir = getwd(),
+  write_distance = TRUE,
+  write_homerange = TRUE
+)
 }
 \arguments{
 \item{df_all}{dataframe of all homerange centroids}

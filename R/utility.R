@@ -8,8 +8,23 @@
 #' @export
 #'
 CalculateMode <- function(x) {
-  uniqx <- unique(x)
-  uniqx[which.max(tabulate(match(x, uniqx)))]
+  unique_x <- unique(x)
+  unique_x[which.max(tabulate(match(x, unique_x)))]
+}
+
+#' Get datetime info
+#'
+#' Get a formatted datetime information for use in messages and names
+#'
+#'
+#' @return the dateime value
+#' @export
+#'
+GetDateTime <- function(){
+  date_time <- paste0(lubridate::date(lubridate::now()), "_",
+    str_pad(lubridate::hour(lubridate::now()), 2, "left", "0"),
+    str_pad(lubridate::minute(lubridate::now()), 2, "left", "0"))
+  return(date_time)
 }
 
 #' Plots selected color palettes
@@ -281,4 +296,37 @@ ThemeBlack = function(base_size = 12, base_family = "") {
       plot.title = element_text(size = base_size*1.2, color = "white"),
       plot.margin = unit(rep(1, 4), "lines")
     )
+}
+
+#' Message for tic of tictoc
+#'
+#' @param tic tictoc object
+#' @param msg character, message
+#'
+#' @export
+#'
+TicMsg <- function(tic, msg) {
+  if (is.null(msg) || is.na(msg) || length(msg) == 0){
+    outmsg <- paste(lubridate::duration(round(toc - tic)))
+  } else {
+    outmsg <- paste0("Starting: ", msg)
+  }
+}
+
+#' Message for toc of tictoc
+#'
+#' @param tic tictoc object
+#' @param toc tictoc object
+#' @param msg character, message
+#' @param info character, other information
+#'
+#' @export
+#'
+TocMsg <- function(tic, toc, msg, info) {
+  tt_duration <- lubridate::duration(round(toc - tic))
+  if (is.null(msg) || is.na(msg) || length(msg) == 0) {
+    outmsg <- paste0(tt_duration)
+  } else {
+    outmsg <- paste0(info, ": ", tt_duration)
+  }
 }

@@ -4,9 +4,16 @@
 \alias{PlotTwoLogisticInflectionPDF}
 \title{Plot two logistic probability density function}
 \usage{
-PlotTwoLogisticInflectionPDF(inflection_1, scale_1, inflection_2, scale_2,
-  x_label = "X Value", log1_range = c(0, 45), log2_range = c(0, 45),
-  xlab_range = c(0, 45))
+PlotTwoLogisticInflectionPDF(
+  inflection_1,
+  scale_1,
+  inflection_2,
+  scale_2,
+  x_label = "X Value",
+  log1_range = c(0, 45),
+  log2_range = c(0, 45),
+  xlab_range = c(0, 45)
+)
 }
 \arguments{
 \item{inflection_1}{Numeric, inflection parameter for distribution 1.}

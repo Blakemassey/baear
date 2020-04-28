@@ -4,8 +4,12 @@
 \alias{AddTimeStepProportion}
 \title{Adds time step proportions}
 \usage{
-AddTimeStepProportion(df = df, by = "id", time_step = "15 min",
-  tz = "Etc/GMT+5")
+AddTimeStepProportion(
+  df = df,
+  by = "id",
+  time_step = "15 min",
+  tz = "Etc/GMT+5"
+)
 }
 \arguments{
 \item{df}{dataframe}

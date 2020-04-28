@@ -4,8 +4,14 @@
 \alias{FilterLocations}
 \title{Filter locations by individual and dates}
 \usage{
-FilterLocations(df = df, id = "id", individual = NULL,
-  start = NULL, end = NULL, behavior = NULL)
+FilterLocations(
+  df = df,
+  id = "id",
+  individual = NULL,
+  start = NULL,
+  end = NULL,
+  behavior = NULL
+)
 }
 \arguments{
 \item{df}{Dataframe with locations.}

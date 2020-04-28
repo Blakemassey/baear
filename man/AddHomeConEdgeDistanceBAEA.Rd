@@ -4,10 +4,18 @@
 \alias{AddHomeConEdgeDistanceBAEA}
 \title{Adds home and conspecific edge distances to 'baea' dataframe}
 \usage{
-AddHomeConEdgeDistanceBAEA(baea, nest_set, base, output_dir = getwd(),
-  max_r, write_home_dist = FALSE, write_con_dist = FALSE,
-  write_con_dist_nest = FALSE, write_edge_dist = FALSE,
-  write_terr_edge = FALSE)
+AddHomeConEdgeDistanceBAEA(
+  baea,
+  nest_set,
+  base,
+  output_dir = getwd(),
+  max_r,
+  write_home_dist = FALSE,
+  write_con_dist = FALSE,
+  write_con_dist_nest = FALSE,
+  write_edge_dist = FALSE,
+  write_terr_edge = FALSE
+)
 }
 \arguments{
 \item{baea}{dataframe of baea locations}
