@@ -1,3 +1,53 @@
+#' Convert data into factors
+#'
+#' Convert data into factors based on assignment of proportional groups
+#' dicatated by breaks
+#'
+#' @param data numeric values
+#' @param breaks number of break groups
+#'
+#' @return factor vector
+#' @export
+#'
+CutProportion <- function(data, breaks = breaks) {
+  b <- seq(0, 1, length = 2*breaks+1)
+  brk <- b[0:breaks*2+1]
+  k <- cut(data, breaks = brk, include.lowest = TRUE)
+}
+
+#' Convert data into midpointS
+#'
+#' Convert data into midpoint values based on assignment of proportional groups
+#' dicatated by breaks
+#'
+#' @param data
+#' @param breaks
+#'
+#' @return vector
+#' @export
+#'
+CutProportionMid <- function(data, breaks = breaks) {
+  b <- seq(0, 1, length = 2*breaks + 1)
+  brk <- b[0:breaks*2 + 1]
+  mid <- b[1:breaks*2]
+  k <- cut(data, breaks = brk, include.lowest = TRUE)
+  mid[k]
+}
+
+#' Capitalize string
+#'
+#' Capitalize first letter of string
+#'
+#' @param string
+#'
+#' @return string
+#' @export
+#'
+Capitalize <- function(string){
+  substr(string, 1, 1) <- toupper(substr(string, 1, 1))
+  string
+}
+
 #' Calculate mode
 #'
 #' Calculate the mode from a vector
