@@ -13,6 +13,7 @@ CutProportion <- function(data, breaks = breaks) {
   b <- seq(0, 1, length = 2*breaks+1)
   brk <- b[0:breaks*2+1]
   k <- cut(data, breaks = brk, include.lowest = TRUE)
+  return(k)
 }
 
 #' Convert data into midpointS
@@ -31,7 +32,8 @@ CutProportionMid <- function(data, breaks = breaks) {
   brk <- b[0:breaks*2 + 1]
   mid <- b[1:breaks*2]
   k <- cut(data, breaks = brk, include.lowest = TRUE)
-  mid[k]
+  out <- mid[k]
+  return(out)
 }
 
 #' Capitalize string
@@ -59,7 +61,8 @@ Capitalize <- function(string){
 #'
 CalculateMode <- function(x) {
   unique_x <- unique(x)
-  unique_x[which.max(tabulate(match(x, unique_x)))]
+  out <- unique_x[which.max(tabulate(match(x, unique_x)))]
+  return(out)
 }
 
 #' Get datetime info
