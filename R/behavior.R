@@ -1524,7 +1524,146 @@ ExtractFlightSpeed <- function(df,
   return(flight)
 }
 
+#' Extract 'momentuHMM' transition matrix probabilities
+#'
+#' @usage ExtractTransitionProbabilities(model, alpha = 0.95)
+#' @param model =  object
+#' @param alpha = p-value for CI
+#'
+#' @details This function is based on momentuHMM:::plotStationary function.
+#'    There may be some extraneous code because it was difficult to extract only
+#'    the necessary code for creating the transition matrix.
+#' @return a tibble
+#' @export
+#'
+ExtractTransitionProbabilities <- function(model,
+                                           alpha = 0.95){
+    model <- momentuHMM:::delta_bc(model)
+    data <- model$data
+    nbStates <- length(model$stateNames)
+    beta <- model$mle$beta
 
+    if(nrow(beta)/model$conditions$mixtures==1){
+      stop("No covariate effect to plot")
+    }
+
+    if(!is.null(model$mod$hessian) & plotCI){
+      Sigma <- model$mod$Sigma
+    } else {
+      Sigma <- NULL
+      plotCI <- FALSE
+    }
+
+    formula <- model$conditions$formula
+    newForm <- momentuHMM:::newFormulas(formula, nbStates,
+      model$conditions$betaRef, hierarchical = TRUE)
+    newformula <- newForm$newformula
+    recharge <- hierRecharge <- newForm$recharge
+
+    covs <- momentuHMM:::getCovs(model, covs, unique(model$data$ID))
+
+    nbG0covs <- 0
+    nbRecovs <- 0
+    g0covs <- NULL
+    recovs <- NULL
+    rawCovs <- model$rawCovs
+
+    covIndex <- 1:ncol(rawCovs)
+
+    nbCovs <- ncol(stats::model.matrix(newformula,data))-1 # substract intercept column
+    mixtures <- model$conditions$mixtures
+
+    gamInd <- (length(model$mod$estimate)-(nbCovs+1)*nbStates*(nbStates-1)*
+      mixtures+1):(length(model$mod$estimate))-(ncol(model$covsPi)*
+      (mixtures-1))-ifelse(nbRecovs,(nbRecovs+1)+
+      (nbG0covs+1),0)-ncol(model$covsDelta)*(nbStates-1)*
+      (!model$conditions$stationary)*mixtures
+
+    # loop over covariates
+    for(cov in covIndex) {
+
+      gridLength <- 101
+      hGridLength <- gridLength
+      inf <- min(rawCovs[,cov],na.rm=TRUE)
+      sup <- max(rawCovs[,cov],na.rm=TRUE)
+
+      # set all covariates to their mean, except for "cov"
+      # (which takes a grid of values from inf to sup)
+      tempCovs <- data.frame(matrix(covs[names(rawCovs)][[1]],
+        nrow = hGridLength, ncol = 1))
+      if(ncol(rawCovs)>1){
+        for(i in 2:ncol(rawCovs)){
+          tempCovs <- cbind(tempCovs,rep(covs[names(rawCovs)][[i]],gridLength))
+        }
+        tempCovs[,cov] <- rep(seq(inf,sup,length=gridLength),
+          each=hGridLength/gridLength)
+      }
+      names(tempCovs) <- names(rawCovs)
+      tmpcovs <- covs[names(rawCovs)]
+      for(i in which(!unlist(lapply(rawCovs, is.factor)))){
+        tmpcovs[i] <- round(covs[names(rawCovs)][i],2)
+      }
+
+      ## NEW SECTION #########################################################
+
+      quantSup <- qnorm(1 - (1 - alpha)/2)
+      tmpSplineInputs <- momentuHMM:::getSplineFormula(newformula, m$data,
+        tempCovs)
+      desMat <- model.matrix(tmpSplineInputs$formula,
+        data = tmpSplineInputs$covs)
+      trMat <- momentuHMM:::trMatrix_rcpp(nbStates, beta, desMat,
+        model$conditions$betaRef)
+      for (i in 1:nbStates) {
+        for (j in 1:nbStates) {
+          if (cov == 1 && i == 1 && j == 1){
+            covars <- tempCovs %>% slice(0)
+            df_trans <- bind_cols(covars, tibble(start_st = integer(),
+              end_st = integer(), prob = numeric(), lci = numeric(),
+              uci = numeric()))
+          }
+          covars <- tempCovs
+          prob <- trMat[i, j, ]
+          start_st <- rep(i, nrow(covars))
+          end_st <- rep(j, nrow(covars))
+          print(paste0("Start ", "cov: ", cov, " i: ", i, " j: ", j))
+          dN <- t(apply(desMat, 1, function(x)
+            tryCatch(numDeriv::grad(momentuHMM:::get_gamma,
+              model$mod$estimate[gamInd][unique(c(model$conditions$betaCons))],
+              covs = matrix(x, nrow = 1), nbStates = nbStates,
+              i = i, j = j, betaRef = model$conditions$betaRef,
+              betaCons = model$conditions$betaCons,
+              workBounds = model$conditions$workBounds$beta),
+              error = function(e) NA)))
+          se <- t(apply(dN, 1, function(x)
+            tryCatch(suppressWarnings(sqrt(x %*%
+              Sigma[gamInd[unique(c(model$conditions$betaCons))],
+              gamInd[unique(c(model$conditions$betaCons))]] %*% x)),
+              error = function(e) NA)))
+          if (!all(is.na(se))) {
+            lci <- 1/(1 + exp(-(log(trMat[i, j, ]/(1 -
+              trMat[i, j, ])) - quantSup * (1/(trMat[i,
+              j, ] - trMat[i, j, ]^2)) * se)))
+            uci <- 1/(1 + exp(-(log(trMat[i, j, ]/(1 -
+              trMat[i, j, ])) + quantSup * (1/(trMat[i,
+              j, ] - trMat[i, j, ]^2)) * se)))
+            lci <- as.vector(lci)
+            uci <- as.vector(uci)
+          } else {
+            lci <- rep(NA, nrow(covars))
+            uci <- rep(NA, nrow(covars))
+          }
+          trans_probs <- tibble(start_st, end_st, prob, lci, uci)
+          df_trans_ij <- bind_cols(covars, trans_probs) %>%
+            as_tibble(.)
+          df_trans <- bind_rows(df_trans, df_trans_ij)
+          print(paste0("End cov: ", cov, "i: ", i, " j: ", j))
+        }
+      }
+    }
+    df_trans_final <- dplyr::as_tibble(df_trans)
+  return(df_trans_final)
+  ## END OF NEW SECTION ##################################################
+}
 
 #' Extract 'momentuHMM' transition matrix probabilities
 #'
@@ -1538,7 +1677,7 @@ ExtractFlightSpeed <- function(df,
 #' @return a tibble
 #' @export
 #'
-ExtractTransitionProbabilities <- function(x,
+ExtractTransitionProbabilitiesOLD <- function(x,
                                            alpha = 0.95){
     animals = NULL
     covs = NULL

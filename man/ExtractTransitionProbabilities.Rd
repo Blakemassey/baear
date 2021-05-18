@@ -4,10 +4,10 @@
 \alias{ExtractTransitionProbabilities}
 \title{Extract 'momentuHMM' transition matrix probabilities}
 \usage{
-ExtractTransitionProbabilities(x, alpha = 0.95)
+ExtractTransitionProbabilities(model, alpha = 0.95)
 }
 \arguments{
-\item{x}{=  object}
+\item{model}{=  object}
 
 \item{alpha}{= p-value for CI}
 }
@@ -18,7 +18,7 @@ a tibble
 Extract 'momentuHMM' transition matrix probabilities
 }
 \details{
-This function is based on momentuHMM:::plot function. There may be
-    a lot of extraneous code because it was difficult to extract only the
-    necessary code for creating the transition matrix.
+This function is based on momentuHMM:::plotStationary function.
+   There may be some extraneous code because it was difficult to extract only
+   the necessary code for creating the transition matrix.
 }
