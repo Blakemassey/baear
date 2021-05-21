@@ -1542,6 +1542,7 @@ ExtractTransitionProbabilities <- function(model,
     data <- model$data
     nbStates <- length(model$stateNames)
     beta <- model$mle$beta
+    plotCI <- TRUE
 
     if(nrow(beta)/model$conditions$mixtures==1){
       stop("No covariate effect to plot")
