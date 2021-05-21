@@ -1560,7 +1560,7 @@ ExtractTransitionProbabilities <- function(model,
     newformula <- newForm$newformula
     recharge <- hierRecharge <- newForm$recharge
 
-    covs <- momentuHMM:::getCovs(model, covs, unique(model$data$ID))
+    covs <- momentuHMM:::getCovs(model, covs = NULL, unique(model$data$ID))
 
     nbG0covs <- 0
     nbRecovs <- 0
