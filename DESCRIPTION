@@ -33,4 +33,4 @@ Imports:
   tmaptools,
   tools,
   tidyr
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2

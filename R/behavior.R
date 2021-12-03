@@ -2124,6 +2124,40 @@ PlotBehaviorProportionLine <- function(df = df,
   theme(strip.background = element_rect(colour = "black", fill = "white"))
 }
 
+
+#' Plot 3D raster of selected cells given a probability raster and sample size
+#'
+#' @param prob_raster Raster
+#' @param sample_n integer sample size of selected cells from probability raster
+#'
+#' @return Raster
+#' @export
+#'
+PlotProbabilityRaster <- function(prob_raster,
+                                  sample_n = 5000){
+  #IMPORTANT - Process to plot probability plot
+  destination_xy <- tibble(x = vector(mode = "numeric", sample_n),
+    y = vector(mode = "numeric", sample_n))
+  for (i in seq_len(sample_n)){
+    destination_cell <- suppressWarnings(sampling::strata(data = data.frame(
+        cell = 1:raster::ncell(prob_raster)), stratanames = NULL, size = 1,
+      method = "systematic", pik = prob_raster@data@values))
+      while(is.na(destination_cell[1,1])) {
+        destination_cell <- suppressWarnings(sampling::strata(data=data.frame(
+          cell = 1:raster::ncell(prob_raster)), stratanames = NULL, size = 1,
+          method="systematic", pik = prob_raster@data@values))
+      }
+    destination_xy[i, ] <- raster::xyFromCell(prob_raster, destination_cell[,1])
+  }
+  destination_raster <- rasterize(destination_xy, prob_raster, field = 1,
+    fun = 'sum', background = NA, mask = FALSE, update = FALSE,
+    updateValue = 'all', filename = "", na.rm = TRUE)
+  if(FALSE) plot(prob_raster)
+  if(FALSE) plot(destination_raster)
+  Plot3DRaster(destination_raster, col = viridis::viridis(20),
+    main = "Probability Plot")
+}
+
 #' Plot step lengths histogram
 #'
 #' Plots a histogram of the step-lengths for each bird
@@ -2288,7 +2322,6 @@ PlotRoostHistogram <- function(df,
    y='Probability Density',
    title="Histogram of Roost Data with Fitted Weibull Distributions")
 }
-
 
 #------------------------------------------------------------------------------#
 ################################ OLD CODE ######################################
